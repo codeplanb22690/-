@@ -1,0 +1,169 @@
+{
+  "id": "MAP006",
+  "name": "黎明星环塔",
+  "scene": "Map_M006_DawnStarRingTower",
+  "theme": "pixel_floor_dawn_star_ring_tower",
+  "size": {
+    "width": 160,
+    "height": 160,
+    "tileSize": 1
+  },
+  "playerSpawn": {
+    "x": 0,
+    "y": 0
+  },
+  "walkableRatioTarget": 1,
+  "maxHardObstacleRatio": 0,
+  "bossArena": {
+    "centerX": 0,
+    "centerY": 0,
+    "radius": 30
+  },
+  "layers": [
+    "Ground_Base",
+    "Ground_Decal",
+    "Main_Path",
+    "Props_Soft",
+    "Props_Collision",
+    "Event_Points",
+    "Spawn_Zones",
+    "Boss_Arena",
+    "Lighting",
+    "Bounds"
+  ],
+  "layerFiles": {
+    "Ground_Base": "layers/dawn-ring-tower/Ground_Base.png",
+    "Ground_Decal": "layers/dawn-ring-tower/Ground_Decal.png",
+    "Main_Path": "layers/dawn-ring-tower/Main_Path.png",
+    "Props_Soft": "layers/dawn-ring-tower/Props_Soft.png",
+    "Props_Collision": "layers/dawn-ring-tower/Props_Collision.png",
+    "Event_Points": "layers/dawn-ring-tower/Event_Points.png",
+    "Spawn_Zones": "layers/dawn-ring-tower/Spawn_Zones.png",
+    "Boss_Arena": "layers/dawn-ring-tower/Boss_Arena.png",
+    "Lighting": "layers/dawn-ring-tower/Lighting.png",
+    "Bounds": "layers/dawn-ring-tower/Bounds.png"
+  },
+  "compositeFile": "dawn-ring-tower.png",
+  "preview3x3File": "previews/dawn-ring-tower-3x3.png",
+  "eventPoints": [
+    {
+      "id": "event_dawn_ring",
+      "name": "星环地面校准点",
+      "type": "map_mechanic",
+      "x": -56,
+      "y": 2,
+      "unlockTime": 360
+    },
+    {
+      "id": "event_dawn_reward",
+      "name": "数据地面奖励点",
+      "type": "random_reward",
+      "x": 56,
+      "y": 2,
+      "unlockTime": 360
+    },
+    {
+      "id": "event_dawn_supply",
+      "name": "终局地面补给点",
+      "type": "shop_reward",
+      "x": 0,
+      "y": 56,
+      "unlockTime": 540
+    },
+    {
+      "id": "event_dawn_echo",
+      "name": "黎明地面残响点",
+      "type": "supply",
+      "x": 0,
+      "y": -44,
+      "unlockTime": 720
+    }
+  ],
+  "spawnZones": [
+    {
+      "id": "spawn_north",
+      "direction": "north",
+      "x": 0,
+      "y": -72,
+      "unlockTime": 0
+    },
+    {
+      "id": "spawn_south",
+      "direction": "south",
+      "x": 0,
+      "y": 72,
+      "unlockTime": 180
+    },
+    {
+      "id": "spawn_east",
+      "direction": "east",
+      "x": 72,
+      "y": 0,
+      "unlockTime": 360
+    },
+    {
+      "id": "spawn_west",
+      "direction": "west",
+      "x": -72,
+      "y": 0,
+      "unlockTime": 360
+    },
+    {
+      "id": "spawn_ne",
+      "direction": "ne",
+      "x": 58,
+      "y": -58,
+      "unlockTime": 540
+    },
+    {
+      "id": "spawn_nw",
+      "direction": "nw",
+      "x": -58,
+      "y": -58,
+      "unlockTime": 540
+    },
+    {
+      "id": "spawn_se",
+      "direction": "se",
+      "x": 58,
+      "y": 58,
+      "unlockTime": 540
+    },
+    {
+      "id": "spawn_sw",
+      "direction": "sw",
+      "x": -58,
+      "y": 58,
+      "unlockTime": 540
+    }
+  ],
+  "collisionRects": [],
+  "bounds": {
+    "minX": -80,
+    "maxX": 80,
+    "minY": -80,
+    "maxY": 80
+  },
+  "mapMechanic": "star_ring",
+  "bossId": "dawn-core",
+  "baseDifficulty": 1.75,
+  "forbiddenStyles": [
+    "medieval",
+    "gothic",
+    "church",
+    "dungeon",
+    "horror",
+    "ruins",
+    "dirty_cyberpunk",
+    "building",
+    "props",
+    "walls",
+    "obstacles"
+  ],
+  "unityImport": {
+    "filterMode": "Point",
+    "compression": "None or Low Quality Off",
+    "wrapMode": "Repeat",
+    "pixelsPerUnit": 32
+  }
+}

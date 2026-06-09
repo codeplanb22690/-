@@ -1,0 +1,169 @@
+{
+  "id": "MAP003",
+  "name": "废弃研究所",
+  "scene": "Map_M003_AbandonedLab",
+  "theme": "pixel_floor_clean_sci_fi_lab",
+  "size": {
+    "width": 160,
+    "height": 160,
+    "tileSize": 1
+  },
+  "playerSpawn": {
+    "x": 0,
+    "y": 0
+  },
+  "walkableRatioTarget": 1,
+  "maxHardObstacleRatio": 0,
+  "bossArena": {
+    "centerX": 0,
+    "centerY": 0,
+    "radius": 26
+  },
+  "layers": [
+    "Ground_Base",
+    "Ground_Decal",
+    "Main_Path",
+    "Props_Soft",
+    "Props_Collision",
+    "Event_Points",
+    "Spawn_Zones",
+    "Boss_Arena",
+    "Lighting",
+    "Bounds"
+  ],
+  "layerFiles": {
+    "Ground_Base": "layers/abandoned-lab/Ground_Base.png",
+    "Ground_Decal": "layers/abandoned-lab/Ground_Decal.png",
+    "Main_Path": "layers/abandoned-lab/Main_Path.png",
+    "Props_Soft": "layers/abandoned-lab/Props_Soft.png",
+    "Props_Collision": "layers/abandoned-lab/Props_Collision.png",
+    "Event_Points": "layers/abandoned-lab/Event_Points.png",
+    "Spawn_Zones": "layers/abandoned-lab/Spawn_Zones.png",
+    "Boss_Arena": "layers/abandoned-lab/Boss_Arena.png",
+    "Lighting": "layers/abandoned-lab/Lighting.png",
+    "Bounds": "layers/abandoned-lab/Bounds.png"
+  },
+  "compositeFile": "abandoned-lab.png",
+  "preview3x3File": "previews/abandoned-lab-3x3.png",
+  "eventPoints": [
+    {
+      "id": "event_lab_scan",
+      "name": "扫描地面节点",
+      "type": "map_mechanic",
+      "x": -54,
+      "y": 2,
+      "unlockTime": 360
+    },
+    {
+      "id": "event_lab_reward",
+      "name": "研究所地面奖励点",
+      "type": "random_reward",
+      "x": 52,
+      "y": 4,
+      "unlockTime": 360
+    },
+    {
+      "id": "event_lab_route",
+      "name": "安全地面路线点",
+      "type": "safe_route",
+      "x": 0,
+      "y": 54,
+      "unlockTime": 480
+    },
+    {
+      "id": "event_lab_shop",
+      "name": "研究所地面补给点",
+      "type": "shop_reward",
+      "x": 32,
+      "y": 38,
+      "unlockTime": 540
+    }
+  ],
+  "spawnZones": [
+    {
+      "id": "spawn_north",
+      "direction": "north",
+      "x": 0,
+      "y": -72,
+      "unlockTime": 0
+    },
+    {
+      "id": "spawn_south",
+      "direction": "south",
+      "x": 0,
+      "y": 72,
+      "unlockTime": 180
+    },
+    {
+      "id": "spawn_east",
+      "direction": "east",
+      "x": 72,
+      "y": 0,
+      "unlockTime": 360
+    },
+    {
+      "id": "spawn_west",
+      "direction": "west",
+      "x": -72,
+      "y": 0,
+      "unlockTime": 360
+    },
+    {
+      "id": "spawn_ne",
+      "direction": "ne",
+      "x": 58,
+      "y": -58,
+      "unlockTime": 540
+    },
+    {
+      "id": "spawn_nw",
+      "direction": "nw",
+      "x": -58,
+      "y": -58,
+      "unlockTime": 540
+    },
+    {
+      "id": "spawn_se",
+      "direction": "se",
+      "x": 58,
+      "y": 58,
+      "unlockTime": 540
+    },
+    {
+      "id": "spawn_sw",
+      "direction": "sw",
+      "x": -58,
+      "y": 58,
+      "unlockTime": 540
+    }
+  ],
+  "collisionRects": [],
+  "bounds": {
+    "minX": -80,
+    "maxX": 80,
+    "minY": -80,
+    "maxY": 80
+  },
+  "mapMechanic": "laser_scan",
+  "bossId": "rogue-robot-mk01",
+  "baseDifficulty": 1.22,
+  "forbiddenStyles": [
+    "medieval",
+    "gothic",
+    "church",
+    "dungeon",
+    "horror",
+    "ruins",
+    "dirty_cyberpunk",
+    "building",
+    "props",
+    "walls",
+    "obstacles"
+  ],
+  "unityImport": {
+    "filterMode": "Point",
+    "compression": "None or Low Quality Off",
+    "wrapMode": "Repeat",
+    "pixelsPerUnit": 32
+  }
+}

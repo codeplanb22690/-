@@ -1,0 +1,64 @@
+{
+  "weapons": {
+    "W001": {
+      "baseIcon": "weapons/w001_mango_cake_weapon.png",
+      "evolvedIcon": "weapons/w001_rainbow_layer_cake_weapon.png",
+      "baseProjectile": "projectiles/w001_mango_cake_projectile.png",
+      "evolvedProjectile": "projectiles/w001_rainbow_layer_cake_projectile.png"
+    },
+    "W002": {
+      "baseIcon": "weapons/w002_strawberry_milkshake_weapon.png",
+      "evolvedIcon": "weapons/w002_sweet_dream_milkshake_storm_weapon.png",
+      "baseProjectile": "projectiles/w002_strawberry_milkshake_orbit.png",
+      "evolvedProjectile": "projectiles/w002_sweet_dream_milkshake_storm_orbit.png"
+    },
+    "W003": {
+      "baseIcon": "weapons/w003_starlight_paper_plane_weapon.png",
+      "evolvedIcon": "weapons/w003_galaxy_messenger_weapon.png",
+      "baseProjectile": "projectiles/w003_starlight_paper_plane_projectile.png",
+      "evolvedProjectile": "projectiles/w003_galaxy_messenger_projectile.png"
+    },
+    "W004": {
+      "baseIcon": "weapons/w004_lucky_clover_weapon.png",
+      "evolvedIcon": "weapons/w004_wheel_of_fortune_weapon.png",
+      "baseProjectile": "projectiles/w004_lucky_clover_projectile.png",
+      "evolvedProjectile": "projectiles/w004_wheel_of_fortune_projectile.png"
+    },
+    "W005": {
+      "baseIcon": "weapons/w005_moonlight_bookmark_weapon.png",
+      "evolvedIcon": "weapons/w005_full_moon_bookmark_array_weapon.png",
+      "baseProjectile": "projectiles/w005_moonlight_bookmark_projectile.png",
+      "evolvedProjectile": "projectiles/w005_full_moon_bookmark_projectile.png"
+    },
+    "W006": {
+      "baseIcon": "weapons/w006_star_orbit_pulse_weapon.png",
+      "evolvedIcon": "weapons/w006_celestial_judgement_weapon.png",
+      "baseProjectile": "projectiles/w006_star_orbit_pulse_marker.png",
+      "evolvedProjectile": "projectiles/w006_celestial_judgement_pillar.png"
+    }
+  },
+  "relics": {
+    "R001": "relics/r001_xingli_hairpin.png",
+    "R002": "relics/r002_cafe_membership_card.png",
+    "R003": "relics/r003_dream_album.png",
+    "R004": "relics/r004_moonlight_bookmark_relic.png",
+    "R005": "relics/r005_lucky_charm.png",
+    "R006": "relics/r006_strawberry_milkshake_cup.png"
+  },
+  "monsters": {
+    "M001": "monsters/m001_lost_dango.png",
+    "M002": "monsters/m002_patrol_robot.png",
+    "M003": "monsters/m003_repair_robot.png",
+    "M004": "monsters/m004_alert_robot.png",
+    "M005": "monsters/m005_sleepless_ghost.png",
+    "M006": "monsters/m006_storm_cloud_sprite.png"
+  },
+  "bosses": {
+    "B001": "bosses/b001_giant_dango_king.png",
+    "B002": "bosses/b002_rogue_robot_mk01.png",
+    "B003": "bosses/b003_nightmare_cat.png",
+    "B004": "bosses/b004_forgotten_shadow.png",
+    "B005": "bosses/b005_star_rail_conductor.png",
+    "B006": "bosses/b006_dawn_core.png"
+  }
+}

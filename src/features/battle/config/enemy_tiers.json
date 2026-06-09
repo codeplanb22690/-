@@ -1,0 +1,293 @@
+{
+  "variants": [
+    {
+      "id": "tier1_dango_fodder",
+      "label": "迷路团子",
+      "baseId": "lost-dango",
+      "role": "fodder",
+      "minTime": 0,
+      "weight": 80,
+      "hpMultiplier": 1,
+      "speedMultiplier": 1,
+      "damageMultiplier": 1,
+      "radiusMultiplier": 1,
+      "expMultiplier": 1,
+      "earlyExpMultiplier": 0.58,
+      "expShard": {
+        "chance": 0.45,
+        "multiplier": 0.34
+      },
+      "knockbackResistance": 0
+    },
+    {
+      "id": "tier1_robot_runner",
+      "label": "巡逻机器人",
+      "baseId": "patrol-robot",
+      "role": "runner",
+      "minTime": 0,
+      "weight": 30,
+      "hpMultiplier": 0.95,
+      "speedMultiplier": 1.18,
+      "damageMultiplier": 1,
+      "radiusMultiplier": 0.96,
+      "expMultiplier": 1,
+      "earlyExpMultiplier": 0.62,
+      "expShard": {
+        "chance": 0.35,
+        "multiplier": 0.38
+      },
+      "knockbackResistance": 0.05
+    },
+    {
+      "id": "tier2_sleepy_flanker",
+      "label": "侧袭幽灵",
+      "baseId": "sleepy-ghost",
+      "role": "runner",
+      "minTime": 180,
+      "weight": 38,
+      "hpMultiplier": 1.15,
+      "speedMultiplier": 1.24,
+      "damageMultiplier": 1.08,
+      "radiusMultiplier": 0.96,
+      "expMultiplier": 1.08,
+      "earlyExpMultiplier": 0.68,
+      "expShard": {
+        "chance": 0.25,
+        "multiplier": 0.42
+      },
+      "knockbackResistance": 0.12
+    },
+    {
+      "id": "tier2_repair_tank",
+      "label": "重装维修机器人",
+      "baseId": "repair-robot",
+      "role": "tank",
+      "minTime": 180,
+      "weight": 30,
+      "hpMultiplier": 1.55,
+      "speedMultiplier": 0.9,
+      "damageMultiplier": 1.18,
+      "radiusMultiplier": 1.06,
+      "expMultiplier": 1.22,
+      "earlyExpMultiplier": 0.72,
+      "expShard": {
+        "chance": 0.2,
+        "multiplier": 0.5
+      },
+      "knockbackResistance": 0.22
+    },
+    {
+      "id": "tier3_alert_charger",
+      "label": "高速突进警戒机",
+      "baseId": "alert-robot",
+      "role": "charger",
+      "minTime": 360,
+      "weight": 34,
+      "hpMultiplier": 1.38,
+      "speedMultiplier": 1.36,
+      "damageMultiplier": 1.18,
+      "radiusMultiplier": 0.98,
+      "expMultiplier": 1.18,
+      "knockbackResistance": 0.3,
+      "dash": {
+        "cooldown": 2.6,
+        "duration": 0.42,
+        "speedMultiplier": 2.35,
+        "triggerDistance": 520,
+        "brakeDistance": 130,
+        "brakeSpeedMultiplier": 0.48
+      }
+    },
+    {
+      "id": "tier3_repair_shield",
+      "label": "护盾维修机器人",
+      "baseId": "repair-robot",
+      "role": "shield",
+      "minTime": 360,
+      "weight": 26,
+      "hpMultiplier": 1.7,
+      "speedMultiplier": 0.98,
+      "damageMultiplier": 1.16,
+      "radiusMultiplier": 1.08,
+      "expMultiplier": 1.28,
+      "knockbackResistance": 0.42,
+      "shieldRatio": 0.42,
+      "damageReduction": 0.22
+    },
+    {
+      "id": "tier3_cloud_splitter",
+      "label": "分裂乌云精灵",
+      "baseId": "cloud-spirit",
+      "role": "splitter",
+      "minTime": 360,
+      "weight": 24,
+      "hpMultiplier": 1.28,
+      "speedMultiplier": 1.12,
+      "damageMultiplier": 1.12,
+      "radiusMultiplier": 1.02,
+      "expMultiplier": 1.2,
+      "knockbackResistance": 0.2,
+      "split": {
+        "count": 2,
+        "variantId": "tier2_sleepy_flanker",
+        "hpMultiplier": 0.48
+      }
+    },
+    {
+      "id": "tier3_ghost_ranged",
+      "label": "远程干扰幽灵",
+      "baseId": "sleepy-ghost",
+      "role": "ranged",
+      "minTime": 360,
+      "weight": 20,
+      "hpMultiplier": 1.18,
+      "speedMultiplier": 1.06,
+      "damageMultiplier": 1.08,
+      "radiusMultiplier": 0.96,
+      "expMultiplier": 1.18,
+      "knockbackResistance": 0.18,
+      "ranged": {
+        "range": 520,
+        "keepDistance": 260,
+        "cooldown": 2.2,
+        "projectileSpeed": 320,
+        "projectileRadius": 15,
+        "damageMultiplier": 0.85
+      }
+    },
+    {
+      "id": "tier4_cloud_surround",
+      "label": "包围乌云精灵",
+      "baseId": "cloud-spirit",
+      "role": "surround",
+      "minTime": 540,
+      "weight": 42,
+      "hpMultiplier": 1.95,
+      "speedMultiplier": 1.22,
+      "damageMultiplier": 1.28,
+      "radiusMultiplier": 1.04,
+      "expMultiplier": 1.35,
+      "knockbackResistance": 0.38
+    },
+    {
+      "id": "tier4_alert_elite_charger",
+      "label": "冲锋精英警戒机",
+      "baseId": "alert-robot",
+      "role": "charger",
+      "minTime": 540,
+      "weight": 32,
+      "hpMultiplier": 2.05,
+      "speedMultiplier": 1.48,
+      "damageMultiplier": 1.36,
+      "radiusMultiplier": 1.02,
+      "expMultiplier": 1.45,
+      "knockbackResistance": 0.5,
+      "eliteChanceBonus": 0.18,
+      "dash": {
+        "cooldown": 2.05,
+        "duration": 0.5,
+        "speedMultiplier": 2.6,
+        "triggerDistance": 620,
+        "brakeDistance": 150,
+        "brakeSpeedMultiplier": 0.42
+      }
+    },
+    {
+      "id": "tier4_repair_bulwark",
+      "label": "终局护盾堡垒",
+      "baseId": "repair-robot",
+      "role": "shield",
+      "minTime": 540,
+      "weight": 34,
+      "hpMultiplier": 2.35,
+      "speedMultiplier": 1.02,
+      "damageMultiplier": 1.34,
+      "radiusMultiplier": 1.12,
+      "expMultiplier": 1.5,
+      "knockbackResistance": 0.58,
+      "shieldRatio": 0.55,
+      "damageReduction": 0.32
+    },
+    {
+      "id": "tier4_alert_ranged",
+      "label": "远程干扰警戒机",
+      "baseId": "alert-robot",
+      "role": "ranged",
+      "minTime": 540,
+      "weight": 26,
+      "hpMultiplier": 1.72,
+      "speedMultiplier": 1.16,
+      "damageMultiplier": 1.28,
+      "radiusMultiplier": 1,
+      "expMultiplier": 1.38,
+      "knockbackResistance": 0.35,
+      "ranged": {
+        "range": 640,
+        "keepDistance": 320,
+        "cooldown": 1.85,
+        "projectileSpeed": 390,
+        "projectileRadius": 16,
+        "damageMultiplier": 0.92
+      }
+    },
+    {
+      "id": "tier5_dawn_swarm",
+      "label": "终局星尘群",
+      "baseId": "cloud-spirit",
+      "role": "surround",
+      "minTime": 720,
+      "weight": 48,
+      "hpMultiplier": 2.65,
+      "speedMultiplier": 1.36,
+      "damageMultiplier": 1.48,
+      "radiusMultiplier": 1.04,
+      "expMultiplier": 1.65,
+      "knockbackResistance": 0.62
+    },
+    {
+      "id": "tier5_dawn_charger",
+      "label": "终局冲锋核心",
+      "baseId": "alert-robot",
+      "role": "charger",
+      "minTime": 720,
+      "weight": 42,
+      "hpMultiplier": 2.8,
+      "speedMultiplier": 1.58,
+      "damageMultiplier": 1.62,
+      "radiusMultiplier": 1.04,
+      "expMultiplier": 1.75,
+      "knockbackResistance": 0.72,
+      "eliteChanceBonus": 0.24,
+      "dash": {
+        "cooldown": 1.65,
+        "duration": 0.55,
+        "speedMultiplier": 2.8,
+        "triggerDistance": 720,
+        "brakeDistance": 175,
+        "brakeSpeedMultiplier": 0.38
+      }
+    },
+    {
+      "id": "tier5_dawn_ranged",
+      "label": "终局远程干扰核心",
+      "baseId": "sleepy-ghost",
+      "role": "ranged",
+      "minTime": 720,
+      "weight": 32,
+      "hpMultiplier": 2.18,
+      "speedMultiplier": 1.22,
+      "damageMultiplier": 1.46,
+      "radiusMultiplier": 1,
+      "expMultiplier": 1.6,
+      "knockbackResistance": 0.5,
+      "ranged": {
+        "range": 760,
+        "keepDistance": 360,
+        "cooldown": 1.55,
+        "projectileSpeed": 440,
+        "projectileRadius": 17,
+        "damageMultiplier": 1
+      }
+    }
+  ]
+}

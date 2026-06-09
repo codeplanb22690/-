@@ -1,0 +1,37 @@
+{
+  "name": "xingcunzhe-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "dev:start": "node Tools/Server/start-dev.mjs",
+    "dev:stop": "node Tools/Server/stop-dev.mjs",
+    "dev:status": "node Tools/Server/status-dev.mjs",
+    "dev:restart": "node Tools/Server/stop-dev.mjs && node Tools/Server/start-dev.mjs",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "lint": "eslint . --max-warnings=0",
+    "maps:generate": "node Tools/Maps/generate-playable-maps.mjs",
+    "maps:validate": "node Tools/Maps/validate-playable-maps.mjs"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^5.0.0",
+    "lucide-react": "^0.468.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "vite": "^6.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.16.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "eslint": "^9.16.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "eslint-plugin-react-refresh": "^0.4.16",
+    "globals": "^15.13.0",
+    "pngjs": "^7.0.0",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.18.0"
+  }
+}

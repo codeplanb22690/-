@@ -1,0 +1,13 @@
+node_modules
+dist
+build
+.env
+.env.local
+.DS_Store
+.vscode
+.idea
+*.log
+.dev-server.pid
+Backups/
+.agents/
+skills-lock.json

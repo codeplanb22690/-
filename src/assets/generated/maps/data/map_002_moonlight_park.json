@@ -1,0 +1,169 @@
+{
+  "id": "MAP002",
+  "name": "月夜公园",
+  "scene": "Map_M002_MoonlightPark",
+  "theme": "pixel_floor_moonlight_park",
+  "size": {
+    "width": 160,
+    "height": 160,
+    "tileSize": 1
+  },
+  "playerSpawn": {
+    "x": 0,
+    "y": 0
+  },
+  "walkableRatioTarget": 1,
+  "maxHardObstacleRatio": 0,
+  "bossArena": {
+    "centerX": 0,
+    "centerY": 0,
+    "radius": 26
+  },
+  "layers": [
+    "Ground_Base",
+    "Ground_Decal",
+    "Main_Path",
+    "Props_Soft",
+    "Props_Collision",
+    "Event_Points",
+    "Spawn_Zones",
+    "Boss_Arena",
+    "Lighting",
+    "Bounds"
+  ],
+  "layerFiles": {
+    "Ground_Base": "layers/moon-park/Ground_Base.png",
+    "Ground_Decal": "layers/moon-park/Ground_Decal.png",
+    "Main_Path": "layers/moon-park/Main_Path.png",
+    "Props_Soft": "layers/moon-park/Props_Soft.png",
+    "Props_Collision": "layers/moon-park/Props_Collision.png",
+    "Event_Points": "layers/moon-park/Event_Points.png",
+    "Spawn_Zones": "layers/moon-park/Spawn_Zones.png",
+    "Boss_Arena": "layers/moon-park/Boss_Arena.png",
+    "Lighting": "layers/moon-park/Lighting.png",
+    "Bounds": "layers/moon-park/Bounds.png"
+  },
+  "compositeFile": "moon-park.png",
+  "preview3x3File": "previews/moon-park-3x3.png",
+  "eventPoints": [
+    {
+      "id": "event_moon_floor",
+      "name": "月光地面潮汐点",
+      "type": "map_mechanic",
+      "x": 8,
+      "y": -16,
+      "unlockTime": 180
+    },
+    {
+      "id": "event_moon_heal",
+      "name": "月光地面补给点",
+      "type": "heal_buff",
+      "x": -50,
+      "y": 8,
+      "unlockTime": 360
+    },
+    {
+      "id": "event_moon_reward",
+      "name": "公园地面奖励点",
+      "type": "random_reward",
+      "x": 50,
+      "y": 2,
+      "unlockTime": 360
+    },
+    {
+      "id": "event_moon_shop",
+      "name": "月夜地面奖励点",
+      "type": "shop_reward",
+      "x": 0,
+      "y": 52,
+      "unlockTime": 540
+    }
+  ],
+  "spawnZones": [
+    {
+      "id": "spawn_north",
+      "direction": "north",
+      "x": 0,
+      "y": -72,
+      "unlockTime": 0
+    },
+    {
+      "id": "spawn_south",
+      "direction": "south",
+      "x": 0,
+      "y": 72,
+      "unlockTime": 180
+    },
+    {
+      "id": "spawn_east",
+      "direction": "east",
+      "x": 72,
+      "y": 0,
+      "unlockTime": 360
+    },
+    {
+      "id": "spawn_west",
+      "direction": "west",
+      "x": -72,
+      "y": 0,
+      "unlockTime": 360
+    },
+    {
+      "id": "spawn_ne",
+      "direction": "ne",
+      "x": 58,
+      "y": -58,
+      "unlockTime": 540
+    },
+    {
+      "id": "spawn_nw",
+      "direction": "nw",
+      "x": -58,
+      "y": -58,
+      "unlockTime": 540
+    },
+    {
+      "id": "spawn_se",
+      "direction": "se",
+      "x": 58,
+      "y": 58,
+      "unlockTime": 540
+    },
+    {
+      "id": "spawn_sw",
+      "direction": "sw",
+      "x": -58,
+      "y": 58,
+      "unlockTime": 540
+    }
+  ],
+  "collisionRects": [],
+  "bounds": {
+    "minX": -80,
+    "maxX": 80,
+    "minY": -80,
+    "maxY": 80
+  },
+  "mapMechanic": "moon_tide",
+  "bossId": "nightmare-cat",
+  "baseDifficulty": 1.1,
+  "forbiddenStyles": [
+    "medieval",
+    "gothic",
+    "church",
+    "dungeon",
+    "horror",
+    "ruins",
+    "dirty_cyberpunk",
+    "building",
+    "props",
+    "walls",
+    "obstacles"
+  ],
+  "unityImport": {
+    "filterMode": "Point",
+    "compression": "None or Low Quality Off",
+    "wrapMode": "Repeat",
+    "pixelsPerUnit": 32
+  }
+}
