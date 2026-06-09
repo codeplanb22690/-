@@ -88,6 +88,8 @@ const activeChannels = new Set<Channel>();
 const aggregateQueues = new Map<AudioEventId, AggregateQueue>();
 const lastPlayedAt = new Map<AudioEventId, number>();
 let battleSfxPrewarmStarted = false;
+let cachedSfxVolumeScale = DEFAULT_SFX_VOLUME / 100;
+let hasLoadedSfxVolumeScale = false;
 
 function clipsByPrefix(prefix: string): string[] {
   const cached = clipUrlsByPrefix.get(prefix);
@@ -325,7 +327,7 @@ function hasWindow(): boolean {
   return typeof window !== "undefined" && typeof localStorage !== "undefined";
 }
 
-function getSfxVolumeScale(): number {
+function readSfxVolumeScale(): number {
   if (!hasWindow()) return DEFAULT_SFX_VOLUME / 100;
 
   try {
@@ -339,22 +341,16 @@ function getSfxVolumeScale(): number {
   }
 }
 
+function getSfxVolumeScale(): number {
+  if (!hasLoadedSfxVolumeScale) {
+    cachedSfxVolumeScale = readSfxVolumeScale();
+    hasLoadedSfxVolumeScale = true;
+  }
+  return cachedSfxVolumeScale;
+}
+
 function randomBetween([min, max]: [number, number]): number {
   return min + Math.random() * (max - min);
-}
-
-function pickClip(clips: string[]): string | undefined {
-  if (clips.length === 0) return undefined;
-  return clips[Math.floor(Math.random() * clips.length)];
-}
-
-function shuffledClips(clips: string[]): string[] {
-  const next = [...clips];
-  for (let index = next.length - 1; index > 0; index -= 1) {
-    const swapIndex = Math.floor(Math.random() * (index + 1));
-    [next[index], next[swapIndex]] = [next[swapIndex], next[index]];
-  }
-  return next;
 }
 
 function getPool(poolKey: string, clipUrl: string, size: number): HTMLAudioElement[] {
@@ -364,7 +360,6 @@ function getPool(poolKey: string, clipUrl: string, size: number): HTMLAudioEleme
   const pool = Array.from({ length: Math.max(1, size) }, () => {
     const audio = new Audio(clipUrl);
     audio.preload = "auto";
-    audio.load();
     return audio;
   });
 
@@ -382,11 +377,11 @@ function getAvailableChannel(
 }
 
 function getPlayableChannel(eventId: AudioEventId, clips: string[], polyphony: number): HTMLAudioElement | null {
-  const fallbackClip = pickClip(clips);
-  const candidates = shuffledClips(clips);
-  if (fallbackClip && !candidates.includes(fallbackClip)) candidates.unshift(fallbackClip);
+  if (clips.length === 0) return null;
 
-  for (const clipUrl of candidates) {
+  const startIndex = Math.floor(Math.random() * clips.length);
+  for (let offset = 0; offset < clips.length; offset += 1) {
+    const clipUrl = clips[(startIndex + offset) % clips.length];
     const audio = getAvailableChannel(eventId, clipUrl, polyphony);
     if (audio) return audio;
   }
@@ -487,9 +482,6 @@ export function prewarmBattleSfx(): void {
   battleSfxPrewarmStarted = true;
   const events: AudioEventId[] = [
     "playerHurt",
-    "weaponCuteFire",
-    "weaponMagicFire",
-    "weaponTechFire",
     "enemyHitCluster",
     "enemyHitBurst",
     "enemyDeathCombo",
@@ -514,14 +506,16 @@ export function prewarmBattleSfx(): void {
     const job = jobs.shift();
     if (!job) return;
     getPool(`${job.eventId}:${job.clipUrl}`, job.clipUrl, job.polyphony);
-    if (jobs.length > 0) window.setTimeout(runNext, 24);
+    if (jobs.length > 0) window.setTimeout(runNext, 80);
   };
 
-  window.setTimeout(runNext, 320);
+  window.setTimeout(runNext, 1200);
 }
 
 function updateActiveChannelVolumes(): void {
-  const userVolume = getSfxVolumeScale();
+  cachedSfxVolumeScale = readSfxVolumeScale();
+  hasLoadedSfxVolumeScale = true;
+  const userVolume = cachedSfxVolumeScale;
   activeChannels.forEach((channel) => {
     if (channel.audio.paused || channel.audio.ended) {
       activeChannels.delete(channel);

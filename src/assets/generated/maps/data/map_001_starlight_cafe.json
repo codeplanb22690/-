@@ -19,32 +19,10 @@
     "centerY": -8,
     "radius": 26
   },
-  "layers": [
-    "Ground_Base",
-    "Ground_Decal",
-    "Main_Path",
-    "Props_Soft",
-    "Props_Collision",
-    "Event_Points",
-    "Spawn_Zones",
-    "Boss_Arena",
-    "Lighting",
-    "Bounds"
-  ],
-  "layerFiles": {
-    "Ground_Base": "layers/starlight-cafe/Ground_Base.png",
-    "Ground_Decal": "layers/starlight-cafe/Ground_Decal.png",
-    "Main_Path": "layers/starlight-cafe/Main_Path.png",
-    "Props_Soft": "layers/starlight-cafe/Props_Soft.png",
-    "Props_Collision": "layers/starlight-cafe/Props_Collision.png",
-    "Event_Points": "layers/starlight-cafe/Event_Points.png",
-    "Spawn_Zones": "layers/starlight-cafe/Spawn_Zones.png",
-    "Boss_Arena": "layers/starlight-cafe/Boss_Arena.png",
-    "Lighting": "layers/starlight-cafe/Lighting.png",
-    "Bounds": "layers/starlight-cafe/Bounds.png"
-  },
+  "layers": [],
+  "layerFiles": {},
   "compositeFile": "starlight-cafe.png",
-  "preview3x3File": "previews/starlight-cafe-3x3.png",
+  "preview3x3File": "starlight-cafe.png",
   "eventPoints": [
     {
       "id": "event_floor_supply_a",

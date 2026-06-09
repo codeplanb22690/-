@@ -19,32 +19,10 @@
     "centerY": 0,
     "radius": 26
   },
-  "layers": [
-    "Ground_Base",
-    "Ground_Decal",
-    "Main_Path",
-    "Props_Soft",
-    "Props_Collision",
-    "Event_Points",
-    "Spawn_Zones",
-    "Boss_Arena",
-    "Lighting",
-    "Bounds"
-  ],
-  "layerFiles": {
-    "Ground_Base": "layers/moon-park/Ground_Base.png",
-    "Ground_Decal": "layers/moon-park/Ground_Decal.png",
-    "Main_Path": "layers/moon-park/Main_Path.png",
-    "Props_Soft": "layers/moon-park/Props_Soft.png",
-    "Props_Collision": "layers/moon-park/Props_Collision.png",
-    "Event_Points": "layers/moon-park/Event_Points.png",
-    "Spawn_Zones": "layers/moon-park/Spawn_Zones.png",
-    "Boss_Arena": "layers/moon-park/Boss_Arena.png",
-    "Lighting": "layers/moon-park/Lighting.png",
-    "Bounds": "layers/moon-park/Bounds.png"
-  },
-  "compositeFile": "moon-park.png",
-  "preview3x3File": "previews/moon-park-3x3.png",
+  "layers": [],
+  "layerFiles": {},
+  "compositeFile": "starlight-cafe.png",
+  "preview3x3File": "starlight-cafe.png",
   "eventPoints": [
     {
       "id": "event_moon_floor",

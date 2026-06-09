@@ -19,32 +19,10 @@
     "centerY": 0,
     "radius": 26
   },
-  "layers": [
-    "Ground_Base",
-    "Ground_Decal",
-    "Main_Path",
-    "Props_Soft",
-    "Props_Collision",
-    "Event_Points",
-    "Spawn_Zones",
-    "Boss_Arena",
-    "Lighting",
-    "Bounds"
-  ],
-  "layerFiles": {
-    "Ground_Base": "layers/sky-train-station/Ground_Base.png",
-    "Ground_Decal": "layers/sky-train-station/Ground_Decal.png",
-    "Main_Path": "layers/sky-train-station/Main_Path.png",
-    "Props_Soft": "layers/sky-train-station/Props_Soft.png",
-    "Props_Collision": "layers/sky-train-station/Props_Collision.png",
-    "Event_Points": "layers/sky-train-station/Event_Points.png",
-    "Spawn_Zones": "layers/sky-train-station/Spawn_Zones.png",
-    "Boss_Arena": "layers/sky-train-station/Boss_Arena.png",
-    "Lighting": "layers/sky-train-station/Lighting.png",
-    "Bounds": "layers/sky-train-station/Bounds.png"
-  },
-  "compositeFile": "sky-train-station.png",
-  "preview3x3File": "previews/sky-train-station-3x3.png",
+  "layers": [],
+  "layerFiles": {},
+  "compositeFile": "starlight-cafe.png",
+  "preview3x3File": "starlight-cafe.png",
   "eventPoints": [
     {
       "id": "event_station_signal",

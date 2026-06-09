@@ -8,19 +8,14 @@ import { DIFFICULTY_PRESETS, MAP_CONFIGS, getDifficultyPreset, getMapConfig } fr
 import type { DifficultyId, MapId } from "@/features/maps/mapConfigs";
 
 const starlightCafeSceneUrl = new URL("../../assets/generated/maps/starlight-cafe.png", import.meta.url).href;
-const moonParkSceneUrl = new URL("../../assets/generated/maps/moon-park.png", import.meta.url).href;
-const abandonedLabSceneUrl = new URL("../../assets/generated/maps/abandoned-lab.png", import.meta.url).href;
-const dreamLibrarySceneUrl = new URL("../../assets/generated/maps/dream-library.png", import.meta.url).href;
-const skyTrainStationSceneUrl = new URL("../../assets/generated/maps/sky-train-station.png", import.meta.url).href;
-const dawnRingTowerSceneUrl = new URL("../../assets/generated/maps/dawn-ring-tower.png", import.meta.url).href;
 
 const MAP_PREVIEW_URLS: Record<MapId, string> = {
   MAP001: starlightCafeSceneUrl,
-  MAP002: moonParkSceneUrl,
-  MAP003: abandonedLabSceneUrl,
-  MAP004: dreamLibrarySceneUrl,
-  MAP005: skyTrainStationSceneUrl,
-  MAP006: dawnRingTowerSceneUrl,
+  MAP002: starlightCafeSceneUrl,
+  MAP003: starlightCafeSceneUrl,
+  MAP004: starlightCafeSceneUrl,
+  MAP005: starlightCafeSceneUrl,
+  MAP006: starlightCafeSceneUrl,
 };
 
 const MAP_SHORT_NAMES: Record<MapId, string> = {

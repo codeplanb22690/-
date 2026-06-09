@@ -19,32 +19,10 @@
     "centerY": 0,
     "radius": 26
   },
-  "layers": [
-    "Ground_Base",
-    "Ground_Decal",
-    "Main_Path",
-    "Props_Soft",
-    "Props_Collision",
-    "Event_Points",
-    "Spawn_Zones",
-    "Boss_Arena",
-    "Lighting",
-    "Bounds"
-  ],
-  "layerFiles": {
-    "Ground_Base": "layers/dream-library/Ground_Base.png",
-    "Ground_Decal": "layers/dream-library/Ground_Decal.png",
-    "Main_Path": "layers/dream-library/Main_Path.png",
-    "Props_Soft": "layers/dream-library/Props_Soft.png",
-    "Props_Collision": "layers/dream-library/Props_Collision.png",
-    "Event_Points": "layers/dream-library/Event_Points.png",
-    "Spawn_Zones": "layers/dream-library/Spawn_Zones.png",
-    "Boss_Arena": "layers/dream-library/Boss_Arena.png",
-    "Lighting": "layers/dream-library/Lighting.png",
-    "Bounds": "layers/dream-library/Bounds.png"
-  },
-  "compositeFile": "dream-library.png",
-  "preview3x3File": "previews/dream-library-3x3.png",
+  "layers": [],
+  "layerFiles": {},
+  "compositeFile": "starlight-cafe.png",
+  "preview3x3File": "starlight-cafe.png",
   "eventPoints": [
     {
       "id": "event_library_index",

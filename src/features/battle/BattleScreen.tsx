@@ -11,8 +11,6 @@ import {
   Gift,
   House,
   Magnet,
-  Maximize2,
-  Minimize2,
   Orbit,
   Pause,
   Plane,
@@ -34,9 +32,7 @@ import { getDifficultyPreset, getMapConfig } from "@/features/maps/mapConfigs";
 import { getPlayableMapData, mapTileToWorld, PLAYABLE_MAP_TILE_WORLD_SIZE } from "@/features/maps/playableMapData";
 import { useGameSettings } from "@/features/settings/useGameSettings";
 import {
-  BATTLE_PIXEL_EVOLVED_PROJECTILES,
   BATTLE_PIXEL_MONSTER_IMAGES,
-  BATTLE_PIXEL_PROJECTILES,
   BATTLE_PIXEL_RELIC_ICONS,
 } from "@/shared/assets/battlePixelAssets";
 import { startBattleMusic, stopBattleMusic, updateBattleMusic } from "@/shared/audio/music";
@@ -48,11 +44,6 @@ import type { DifficultyId, DifficultyPreset, GameMapConfig, MapId } from "@/fea
 import type { PlayableMapData, PlayableMapRect, PlayableMapSpawnZone, SpawnZoneDirection } from "@/features/maps/playableMapData";
 
 const starlightCafeSceneUrl = new URL("../../assets/generated/maps/starlight-cafe.png", import.meta.url).href;
-const moonParkSceneUrl = new URL("../../assets/generated/maps/moon-park.png", import.meta.url).href;
-const abandonedLabSceneUrl = new URL("../../assets/generated/maps/abandoned-lab.png", import.meta.url).href;
-const dreamLibrarySceneUrl = new URL("../../assets/generated/maps/dream-library.png", import.meta.url).href;
-const skyTrainStationSceneUrl = new URL("../../assets/generated/maps/sky-train-station.png", import.meta.url).href;
-const dawnRingTowerSceneUrl = new URL("../../assets/generated/maps/dawn-ring-tower.png", import.meta.url).href;
 const xingliLeftWalkUrl = new URL("../../assets/generated/battle-optimized/characters/xingli-left-walk-battle.png", import.meta.url).href;
 const xingliRightWalkUrl = new URL("../../assets/generated/battle-optimized/characters/xingli-right-walk-battle.png", import.meta.url).href;
 const expCrystalUrl = new URL("../../assets/generated/battle-optimized/pickups/exp-crystal.png", import.meta.url).href;
@@ -128,14 +119,7 @@ type ImageKey =
   | "xingliLeft"
   | "xingliRight"
   | MonsterId
-  | PickupType
-  | WeaponId
-  | "mangoCakeEvolvedProjectile"
-  | "strawberryMilkshakeEvolvedProjectile"
-  | "starlightPaperPlaneEvolvedProjectile"
-  | "luckyCloverEvolvedProjectile"
-  | "moonBookmarkEvolvedProjectile"
-  | "starPulseEffect";
+  | PickupType;
 type BattleIconKey = UpgradeKind | WeaponId | RelicId | "coins" | "kills" | "chest";
 
 type MonsterConfig = {
@@ -225,6 +209,13 @@ type BattlePhaseConfig = {
   surroundWave: SurroundWaveConfig;
 };
 
+type PendingMonsterSpawn = {
+  variantId: string;
+  isElite: boolean;
+  directionMode: SpawnDirectionMode;
+  phaseIndex: number;
+};
+
 type DynamicDifficultyConfig = {
   sampleWindow: number;
   checkInterval: number;
@@ -306,6 +297,7 @@ type Monster = {
   splitCount?: number;
   splitHpMultiplier?: number;
   lastDamageAt: number;
+  lastHitProjectileId: number;
   queryStamp: number;
   facing: Facing;
   isElite: boolean;
@@ -326,7 +318,6 @@ type Projectile = {
   explosive: boolean;
   bornAt: number;
   customLifetimeMs?: number;
-  hitIds: number[];
   hitCount: number;
   bounceSpeed?: number;
   orbitAngularSpeed?: number;
@@ -375,6 +366,18 @@ type MonsterSpatialGrid = {
   activeCellKeys: number[];
 };
 
+type PendingProjectileSpawn = {
+  weapon: WeaponId;
+  x: number;
+  y: number;
+  angle: number;
+  speed: number;
+  damage: number;
+  pierce: number;
+  explosive: boolean;
+  options: ProjectileOptions;
+};
+
 type EngineState = {
   runId: string;
   mapConfig: GameMapConfig;
@@ -399,10 +402,16 @@ type EngineState = {
   monsters: Monster[];
   projectiles: Projectile[];
   projectilePool: Projectile[];
+  pendingProjectiles: PendingProjectileSpawn[];
+  pendingProjectilePool: PendingProjectileSpawn[];
+  pendingProjectileHead: number;
+  projectileCollisionCursor: number;
   enemyProjectiles: EnemyProjectile[];
   pickups: Pickup[];
   pickupPool: Pickup[];
   deathQueue: DeathEvent[];
+  pendingMonsterSpawns: PendingMonsterSpawn[];
+  pendingMonsterSpawnHead: number;
   monsterSpatialGrid: MonsterSpatialGrid;
   targetCache: {
     target: Monster | null;
@@ -432,6 +441,7 @@ type EngineState = {
   nextEnemyProjectileId: number;
   nextPickupId: number;
   nextMonsterQueryStamp: number;
+  lastWeaponFireAudioAt: number;
   spawnClock: number;
   eliteSpawnClock: number;
   fireClock: number;
@@ -507,11 +517,18 @@ function createBattlePerfConfig() {
     monsterCollisionPasses: isMobile ? 2 : 3,
     maxPairCollisionMonsters: isMobile ? 70 : 90,
     maxPickups: isLowEndMobile ? 96 : isMobile ? 120 : 180,
-    maxPlayerProjectiles: isLowEndMobile ? 120 : isMobile ? 140 : 180,
+    maxPlayerProjectiles: isLowEndMobile ? 48 : isMobile ? 64 : 120,
     maxEnemyProjectiles: isLowEndMobile ? 48 : isMobile ? 56 : 80,
     drawCullMargin: isMobile ? 96 : 140,
     deathQueueMaxEventsPerFrame: isMobile ? 8 : 12,
     deathQueueMaxPickupsPerFrame: isMobile ? 6 : 10,
+    maxMonsterSpawnsPerFrame: isMobile ? 3 : 5,
+    maxOffscreenRespawnsPerFrame: isMobile ? 2 : 4,
+    spawnPositionAttempts: isMobile ? 4 : 7,
+    maxPendingMonsterSpawns: isMobile ? 42 : 64,
+    projectileSpawnsPerFrame: isMobile ? 6 : 12,
+    maxPendingProjectileSpawns: isMobile ? 64 : 100,
+    projectileCollisionChecksPerFrame: isMobile ? 32 : 72,
   };
 }
 
@@ -535,11 +552,24 @@ const CANVAS_RENDER_SCALE = BATTLE_PERF_CONFIG.renderScale;
 const TARGET_CACHE_INTERVAL_MS = BATTLE_PERF_CONFIG.isMobile ? 120 : 80;
 const DRAW_CULL_MARGIN = BATTLE_PERF_CONFIG.drawCullMargin;
 const FLOOR_TILE_SCREEN_SIZE = 512;
-const FLOOR_TILE_SAFE_MARGIN = 256;
+const FLOOR_TILE_SAFE_MARGIN = 128;
 const MAX_PAIR_COLLISION_MONSTERS = BATTLE_PERF_CONFIG.maxPairCollisionMonsters;
 const MAX_PICKUPS = BATTLE_PERF_CONFIG.maxPickups;
 const MAX_PLAYER_PROJECTILES = BATTLE_PERF_CONFIG.maxPlayerProjectiles;
 const MAX_ENEMY_PROJECTILES = BATTLE_PERF_CONFIG.maxEnemyProjectiles;
+const MAX_MONSTER_SPAWNS_PER_FRAME = BATTLE_PERF_CONFIG.maxMonsterSpawnsPerFrame;
+const MAX_OFFSCREEN_RESPAWNS_PER_FRAME = BATTLE_PERF_CONFIG.maxOffscreenRespawnsPerFrame;
+const SPAWN_POSITION_ATTEMPTS = BATTLE_PERF_CONFIG.spawnPositionAttempts;
+const MAX_PENDING_MONSTER_SPAWNS = BATTLE_PERF_CONFIG.maxPendingMonsterSpawns;
+const PROJECTILE_SPAWNS_PER_FRAME = BATTLE_PERF_CONFIG.projectileSpawnsPerFrame;
+const MAX_PENDING_PROJECTILE_SPAWNS = BATTLE_PERF_CONFIG.maxPendingProjectileSpawns;
+const PROJECTILE_COLLISION_CHECKS_PER_FRAME = BATTLE_PERF_CONFIG.projectileCollisionChecksPerFrame;
+const MAX_WEAPON_FIRES_PER_FRAME = BATTLE_PERF_CONFIG.isMobile ? 1 : 2;
+const WEAPON_FIRE_AUDIO_COOLDOWN_MS = BATTLE_PERF_CONFIG.isMobile ? 140 : 96;
+const ENABLE_PLAYER_WEAPON_FIRE_SFX = false;
+const ENABLE_PLAYER_HURT_SFX = false;
+const ENABLE_MONSTER_PAIR_COLLISIONS = !BATTLE_PERF_CONFIG.isMobile;
+const MAX_PLAYER_COLLISION_MONSTERS = BATTLE_PERF_CONFIG.isMobile ? 14 : 28;
 const MONSTER_SPATIAL_CELL_SIZE = 220;
 const MONSTER_SPATIAL_KEY_OFFSET = 32768;
 const MONSTER_SPATIAL_KEY_STRIDE = 65536;
@@ -649,11 +679,11 @@ const WEAPON_META: Record<
 
 const MAP_IMAGE_SOURCES: Record<MapId, string> = {
   MAP001: starlightCafeSceneUrl,
-  MAP002: moonParkSceneUrl,
-  MAP003: abandonedLabSceneUrl,
-  MAP004: dreamLibrarySceneUrl,
-  MAP005: skyTrainStationSceneUrl,
-  MAP006: dawnRingTowerSceneUrl,
+  MAP002: starlightCafeSceneUrl,
+  MAP003: starlightCafeSceneUrl,
+  MAP004: starlightCafeSceneUrl,
+  MAP005: starlightCafeSceneUrl,
+  MAP006: starlightCafeSceneUrl,
 };
 
 const BATTLE_IMAGE_SOURCES: Record<Exclude<ImageKey, MapId>, string> = {
@@ -678,18 +708,6 @@ const BATTLE_IMAGE_SOURCES: Record<Exclude<ImageKey, MapId>, string> = {
   luckyStar: BATTLE_PIXEL_RELIC_ICONS.luckyCharm,
   energyDrink: BATTLE_PIXEL_RELIC_ICONS.strawberryShake,
   mysteryBox: coinUrl,
-  mangoCake: BATTLE_PIXEL_PROJECTILES.mangoCake,
-  strawberryMilkshake: BATTLE_PIXEL_PROJECTILES.strawberryMilkshake,
-  starlightPaperPlane: BATTLE_PIXEL_PROJECTILES.starlightPaperPlane,
-  luckyClover: BATTLE_PIXEL_PROJECTILES.luckyClover,
-  moonBookmark: BATTLE_PIXEL_PROJECTILES.moonBookmark,
-  starPulse: BATTLE_PIXEL_PROJECTILES.starPulse,
-  mangoCakeEvolvedProjectile: BATTLE_PIXEL_EVOLVED_PROJECTILES.mangoCake,
-  strawberryMilkshakeEvolvedProjectile: BATTLE_PIXEL_EVOLVED_PROJECTILES.strawberryMilkshake,
-  starlightPaperPlaneEvolvedProjectile: BATTLE_PIXEL_EVOLVED_PROJECTILES.starlightPaperPlane,
-  luckyCloverEvolvedProjectile: BATTLE_PIXEL_EVOLVED_PROJECTILES.luckyClover,
-  moonBookmarkEvolvedProjectile: BATTLE_PIXEL_EVOLVED_PROJECTILES.moonBookmark,
-  starPulseEffect: BATTLE_PIXEL_EVOLVED_PROJECTILES.starPulse,
 };
 
 const MONSTER_CONFIGS: MonsterConfig[] = [
@@ -954,6 +972,10 @@ function pickEnemyVariant(engine: EngineState, phase: BattlePhaseConfig, overrid
   return pickWeighted(getAvailableEnemyVariants(engine, phase, overrideTierIds));
 }
 
+function getFallbackVariantForMonster(monsterId: MonsterId) {
+  return ENEMY_VARIANTS.find((variant) => variant.baseId === monsterId);
+}
+
 function pickWeighted<T extends { weight: number }>(items: T[]) {
   const total = items.reduce((sum, item) => sum + item.weight, 0);
   let roll = Math.random() * total;
@@ -1140,10 +1162,16 @@ function createInitialEngine(
     monsters: [],
     projectiles: [],
     projectilePool: [],
+    pendingProjectiles: [],
+    pendingProjectilePool: [],
+    pendingProjectileHead: 0,
+    projectileCollisionCursor: 0,
     enemyProjectiles: [],
     pickups: [],
     pickupPool: [],
     deathQueue: [],
+    pendingMonsterSpawns: [],
+    pendingMonsterSpawnHead: 0,
     monsterSpatialGrid: {
       cellSize: MONSTER_SPATIAL_CELL_SIZE,
       cells: new Map(),
@@ -1177,6 +1205,7 @@ function createInitialEngine(
     nextEnemyProjectileId: 1,
     nextPickupId: 1,
     nextMonsterQueryStamp: 1,
+    lastWeaponFireAudioAt: 0,
     spawnClock: 0,
     eliteSpawnClock: 0,
     fireClock: 0,
@@ -1623,6 +1652,7 @@ function spawnMonsterAt(
     splitCount: variant?.split?.count,
     splitHpMultiplier: variant?.split?.hpMultiplier,
     lastDamageAt: -Infinity,
+    lastHitProjectileId: 0,
     queryStamp: 0,
     facing: safePoint.x > engine.player.x ? "left" : "right",
     isElite,
@@ -1648,8 +1678,9 @@ function spawnAtEdge(
   const halfHeight = height / 2 / zoom;
   const margin = 120;
   const radius = getMonsterCollisionRadius(config.id, isElite) * (variant?.radiusMultiplier ?? 1);
+  const spawnWeights = getMapSpawnZoneWeights(engine, directionMode, phase);
   const createPoint = () => {
-    const spawnEntry = pickWeighted(getMapSpawnZoneWeights(engine, directionMode, phase));
+    const spawnEntry = pickWeighted(spawnWeights);
     const zone = spawnEntry.zone;
     const direction = zoneDirectionVector(zone.direction);
     const edgeDistance =
@@ -1670,7 +1701,7 @@ function spawnAtEdge(
   };
 
   let spawnPoint = createPoint();
-  for (let attempt = 0; attempt < 12; attempt += 1) {
+  for (let attempt = 0; attempt < SPAWN_POSITION_ATTEMPTS; attempt += 1) {
     const candidate = createPoint();
     let overlaps = false;
     for (let index = 0, checked = 0; index < engine.monsters.length && checked < MAX_PAIR_COLLISION_MONSTERS; index += 1) {
@@ -1703,6 +1734,62 @@ function spawnVariantAtEdge(
   phase?: BattlePhaseConfig,
 ) {
   spawnAtEdge(engine, width, height, zoom, getMonsterConfig(variant.baseId), isElite, directionMode, variant, phase);
+}
+
+function enqueueMonsterSpawn(
+  engine: EngineState,
+  variant: EnemyVariantConfig,
+  isElite: boolean,
+  directionMode: SpawnDirectionMode,
+  phaseIndex: number,
+) {
+  if (engine.pendingMonsterSpawns.length - engine.pendingMonsterSpawnHead >= MAX_PENDING_MONSTER_SPAWNS) return;
+  engine.pendingMonsterSpawns.push({
+    variantId: variant.id,
+    isElite,
+    directionMode,
+    phaseIndex,
+  });
+}
+
+function compactPendingMonsterSpawns(engine: EngineState) {
+  if (engine.pendingMonsterSpawnHead === 0) return;
+  if (engine.pendingMonsterSpawnHead >= engine.pendingMonsterSpawns.length) {
+    engine.pendingMonsterSpawns.length = 0;
+    engine.pendingMonsterSpawnHead = 0;
+    return;
+  }
+  if (engine.pendingMonsterSpawnHead < 24 || engine.pendingMonsterSpawnHead * 2 < engine.pendingMonsterSpawns.length) return;
+  engine.pendingMonsterSpawns.splice(0, engine.pendingMonsterSpawnHead);
+  engine.pendingMonsterSpawnHead = 0;
+}
+
+function processPendingMonsterSpawns(
+  engine: EngineState,
+  width: number,
+  height: number,
+  zoom: number,
+  monsterLimit: number,
+) {
+  if (engine.pendingMonsterSpawnHead >= engine.pendingMonsterSpawns.length) {
+    compactPendingMonsterSpawns(engine);
+    return;
+  }
+
+  let activeCount = countActiveMonsters(engine);
+  let spawned = 0;
+  while (engine.pendingMonsterSpawnHead < engine.pendingMonsterSpawns.length && spawned < MAX_MONSTER_SPAWNS_PER_FRAME && activeCount < monsterLimit) {
+    const job = engine.pendingMonsterSpawns[engine.pendingMonsterSpawnHead];
+    engine.pendingMonsterSpawnHead += 1;
+    if (!job) break;
+    const variant = ENEMY_VARIANT_BY_ID[job.variantId];
+    if (!variant) continue;
+    const phase = BATTLE_PHASES[job.phaseIndex] ?? BATTLE_PHASES[BATTLE_PHASES.length - 1];
+    spawnVariantAtEdge(engine, width, height, zoom, variant, job.isElite, job.directionMode, phase);
+    activeCount += 1;
+    spawned += 1;
+  }
+  compactPendingMonsterSpawns(engine);
 }
 
 function getMonsterConfig(kind: MonsterId) {
@@ -1794,27 +1881,35 @@ function applyPlayerDamage(engine: EngineState, damage: number, timelineElapsed:
   engine.stats.hp = Math.max(0, engine.stats.hp - damage);
   engine.damageTaken += Math.max(1, hitCount);
   engine.damageEvents.push(timelineElapsed);
-  playAudioEvent("playerHurt", { volume });
+  if (ENABLE_PLAYER_HURT_SFX) playAudioEvent("playerHurt", { volume });
 }
 
-function applyMonsterContactDamage(engine: EngineState, timelineElapsed: number, phase: BattlePhaseConfig, damagePressureScale: number, now: number) {
+function applyMonsterContactDamage(
+  engine: EngineState,
+  grid: MonsterSpatialGrid,
+  timelineElapsed: number,
+  phase: BattlePhaseConfig,
+  damagePressureScale: number,
+  now: number,
+) {
   let totalDamage = 0;
   let hitCount = 0;
-  for (const monster of engine.monsters) {
-    if (monster.isDying) continue;
-    if (now - monster.lastDamageAt < CONTACT_DAMAGE_COOLDOWN_MS) continue;
+  const scanRadius = PLAYER_RADIUS + MONSTER_MAX_QUERY_RADIUS + MONSTER_COLLISION_GAP + 2;
+  visitNearbyMonsters(engine, grid, engine.player.x, engine.player.y, scanRadius, (monster) => {
+    if (monster.isDying) return;
+    if (now - monster.lastDamageAt < CONTACT_DAMAGE_COOLDOWN_MS) return;
     const contactDistance = PLAYER_RADIUS + monster.radius + MONSTER_COLLISION_GAP + 2;
     const dx = monster.x - engine.player.x;
     const dy = monster.y - engine.player.y;
-    if (dx * dx + dy * dy > contactDistance * contactDistance) continue;
+    if (dx * dx + dy * dy > contactDistance * contactDistance) return;
     monster.lastDamageAt = now;
     totalDamage += getMonsterDamage(engine, monster, phase, damagePressureScale);
     hitCount += 1;
-  }
+  }, 0);
   if (hitCount > 0) applyPlayerDamage(engine, totalDamage, timelineElapsed, 0.86, hitCount);
 }
 
-function spawnSurroundWave(engine: EngineState, width: number, height: number, zoom: number, phase: BattlePhaseConfig) {
+function spawnSurroundWave(engine: EngineState, phase: BattlePhaseConfig, phaseIndex: number) {
   const wave = phase.surroundWave;
   if (!wave.enabled || wave.count <= 0) return;
   const pressureScale = Math.max(0.75, 1 + Math.max(0, engine.director.pressure) * getDynamicConfig().surroundPerPressure);
@@ -1822,7 +1917,7 @@ function spawnSurroundWave(engine: EngineState, width: number, height: number, z
   for (let index = 0; index < count; index += 1) {
     const variant = pickEnemyVariant(engine, phase, wave.tierIds);
     const elite = Math.random() < getPhaseEliteChance(engine, phase, variant) * 0.55;
-    spawnVariantAtEdge(engine, width, height, zoom, variant, elite, wave.directionMode, phase);
+    enqueueMonsterSpawn(engine, variant, elite, wave.directionMode, phaseIndex);
   }
 }
 
@@ -1870,10 +1965,11 @@ function visitNearbyMonsters(
   y: number,
   radius: number,
   visit: (monster: Monster) => boolean | void,
+  queryPadding = MONSTER_MAX_QUERY_RADIUS,
 ) {
   const centerCellX = Math.floor(x / grid.cellSize);
   const centerCellY = Math.floor(y / grid.cellSize);
-  const cellRange = Math.max(1, Math.ceil((radius + MONSTER_MAX_QUERY_RADIUS) / grid.cellSize));
+  const cellRange = Math.max(1, Math.ceil((radius + queryPadding) / grid.cellSize));
   const queryStamp = engine.nextMonsterQueryStamp;
   engine.nextMonsterQueryStamp = queryStamp >= Number.MAX_SAFE_INTEGER ? 1 : queryStamp + 1;
 
@@ -1890,25 +1986,26 @@ function visitNearbyMonsters(
   }
 }
 
-function getNearestMonster(engine: EngineState, width: number, height: number, zoom: number) {
+function getNearestMonster(engine: EngineState, grid: MonsterSpatialGrid, width: number, height: number, zoom: number) {
   const halfWidth = width / 2 / zoom;
   const halfHeight = height / 2 / zoom;
+  const queryRadius = Math.max(halfWidth, halfHeight);
   let nearest: Monster | undefined;
   let nearestDistanceSq = Number.POSITIVE_INFINITY;
-  for (const monster of engine.monsters) {
-    if (monster.isDying) continue;
+  visitNearbyMonsters(engine, grid, engine.player.x, engine.player.y, queryRadius, (monster) => {
+    if (monster.isDying) return;
     const dx = monster.x - engine.player.x;
     const dy = monster.y - engine.player.y;
-    if (Math.abs(dx) > halfWidth || Math.abs(dy) > halfHeight) continue;
+    if (Math.abs(dx) > halfWidth || Math.abs(dy) > halfHeight) return;
     const distanceSq = dx * dx + dy * dy;
-    if (distanceSq >= nearestDistanceSq) continue;
+    if (distanceSq >= nearestDistanceSq) return;
     nearest = monster;
     nearestDistanceSq = distanceSq;
-  }
+  });
   return nearest;
 }
 
-function getCachedNearestMonster(engine: EngineState, width: number, height: number, zoom: number, now: number) {
+function getCachedNearestMonster(engine: EngineState, grid: MonsterSpatialGrid, width: number, height: number, zoom: number, now: number) {
   const cached = engine.targetCache.target;
   if (cached && !cached.isDying && cached.hp > 0 && now - engine.targetCache.updatedAt < TARGET_CACHE_INTERVAL_MS) {
     const halfWidth = width / 2 / zoom;
@@ -1916,18 +2013,19 @@ function getCachedNearestMonster(engine: EngineState, width: number, height: num
     if (Math.abs(cached.x - engine.player.x) <= halfWidth && Math.abs(cached.y - engine.player.y) <= halfHeight) return cached;
   }
 
-  const target = getNearestMonster(engine, width, height, zoom) ?? null;
+  const target = getNearestMonster(engine, grid, width, height, zoom) ?? null;
   engine.targetCache.target = target;
   engine.targetCache.updatedAt = now;
   return target;
 }
 
-function resolveMonsterCollisions(engine: EngineState) {
-  const activePairMonsters: Monster[] = [];
-  let activeCount = 0;
-  for (const monster of engine.monsters) {
-    if (monster.isDying) continue;
-    activeCount += 1;
+function resolveMonsterCollisions(engine: EngineState, grid: MonsterSpatialGrid) {
+  const nearbyMonsters: Monster[] = [];
+  let movedAny = false;
+  const scanRadius = PLAYER_RADIUS + MONSTER_MAX_QUERY_RADIUS + MONSTER_COLLISION_GAP;
+  visitNearbyMonsters(engine, grid, engine.player.x, engine.player.y, scanRadius, (monster) => {
+    if (monster.isDying) return;
+    if (nearbyMonsters.length >= MAX_PLAYER_COLLISION_MONSTERS) return false;
     let playerDx = monster.x - engine.player.x;
     let playerDy = monster.y - engine.player.y;
     let playerDistanceSq = playerDx * playerDx + playerDy * playerDy;
@@ -1943,18 +2041,20 @@ function resolveMonsterCollisions(engine: EngineState) {
       const push = minPlayerDistance - playerDistance;
       monster.x += (playerDx / playerDistance) * push;
       monster.y += (playerDy / playerDistance) * push;
+      movedAny = true;
     }
-    if (activePairMonsters.length < MAX_PAIR_COLLISION_MONSTERS) activePairMonsters.push(monster);
-  }
+    nearbyMonsters.push(monster);
+  }, 0);
 
-  if (activeCount > MAX_PAIR_COLLISION_MONSTERS) return;
+  if (!ENABLE_MONSTER_PAIR_COLLISIONS) return movedAny;
 
-  for (let pass = 0; pass < MONSTER_COLLISION_PASSES; pass += 1) {
-    for (let index = 0; index < activePairMonsters.length; index += 1) {
-      const monster = activePairMonsters[index];
+  const passes = MONSTER_COLLISION_PASSES;
+  for (let pass = 0; pass < passes; pass += 1) {
+    for (let index = 0; index < nearbyMonsters.length; index += 1) {
+      const monster = nearbyMonsters[index];
 
-      for (let otherIndex = index + 1; otherIndex < activePairMonsters.length; otherIndex += 1) {
-        const other = activePairMonsters[otherIndex];
+      for (let otherIndex = index + 1; otherIndex < nearbyMonsters.length; otherIndex += 1) {
+        const other = nearbyMonsters[otherIndex];
         let dx = other.x - monster.x;
         let dy = other.y - monster.y;
         let distanceSq = dx * dx + dy * dy;
@@ -1975,9 +2075,12 @@ function resolveMonsterCollisions(engine: EngineState) {
         monster.y -= pushY;
         other.x += pushX;
         other.y += pushY;
+        movedAny = true;
       }
     }
   }
+
+  return movedAny;
 }
 
 function loadImages(mapId: MapId, onReady: (images: Record<ImageKey, HTMLImageElement>) => void) {
@@ -2034,22 +2137,122 @@ function drawSpriteFrame(
   context.drawImage(image, frameWidth * frame, 0, frameWidth, image.naturalHeight, x - width / 2, y - height / 2, width, height);
 }
 
-function drawRotatedImageMaxSize(
+function rotatedPoint(x: number, y: number, localX: number, localY: number, cos: number, sin: number) {
+  return {
+    x: x + localX * cos - localY * sin,
+    y: y + localX * sin + localY * cos,
+  };
+}
+
+function drawProjectileDiamond(
   context: CanvasRenderingContext2D,
-  image: HTMLImageElement,
   x: number,
   y: number,
-  maxSize: number,
   rotation: number,
+  length: number,
+  width: number,
 ) {
-  const aspect = getImageAspect(image);
-  const width = aspect >= 1 ? maxSize : maxSize * aspect;
-  const height = aspect >= 1 ? maxSize / aspect : maxSize;
-  context.save();
-  context.translate(x, y);
-  context.rotate(rotation);
-  context.drawImage(image, -width / 2, -height / 2, width, height);
-  context.restore();
+  const cos = Math.cos(rotation);
+  const sin = Math.sin(rotation);
+  const nose = rotatedPoint(x, y, length, 0, cos, sin);
+  const right = rotatedPoint(x, y, 0, width, cos, sin);
+  const tail = rotatedPoint(x, y, -length * 0.78, 0, cos, sin);
+  const left = rotatedPoint(x, y, 0, -width, cos, sin);
+  context.beginPath();
+  context.moveTo(nose.x, nose.y);
+  context.lineTo(right.x, right.y);
+  context.lineTo(tail.x, tail.y);
+  context.lineTo(left.x, left.y);
+  context.closePath();
+  context.fill();
+}
+
+function drawProjectileGeometry(
+  context: CanvasRenderingContext2D,
+  projectile: Projectile,
+  x: number,
+  y: number,
+  sizeScale: number,
+  evolved: boolean,
+) {
+  const scale = Math.max(0.75, sizeScale);
+  const rotation = projectile.rotation;
+
+  if (projectile.weapon === "mangoCake") {
+    context.fillStyle = evolved ? "#ffdf61" : "#ffd05a";
+    drawProjectileDiamond(context, x, y, rotation, 12 * scale, 7 * scale);
+    context.fillStyle = evolved ? "#ff78c8" : "#fff0b0";
+    context.fillRect(x - 2 * scale, y - 2 * scale, 4 * scale, 4 * scale);
+    return;
+  }
+
+  if (projectile.weapon === "starlightPaperPlane") {
+    const cos = Math.cos(rotation);
+    const sin = Math.sin(rotation);
+    const nose = rotatedPoint(x, y, 15 * scale, 0, cos, sin);
+    const wingA = rotatedPoint(x, y, -11 * scale, 8 * scale, cos, sin);
+    const center = rotatedPoint(x, y, -3 * scale, 0, cos, sin);
+    const wingB = rotatedPoint(x, y, -11 * scale, -8 * scale, cos, sin);
+    context.fillStyle = evolved ? "#b8f4ff" : "#d7fbff";
+    context.beginPath();
+    context.moveTo(nose.x, nose.y);
+    context.lineTo(wingA.x, wingA.y);
+    context.lineTo(center.x, center.y);
+    context.lineTo(wingB.x, wingB.y);
+    context.closePath();
+    context.fill();
+    context.strokeStyle = evolved ? "#62d7ff" : "#7bbcff";
+    context.lineWidth = Math.max(1, 2 * scale);
+    context.beginPath();
+    context.moveTo(center.x, center.y);
+    context.lineTo(nose.x, nose.y);
+    context.stroke();
+    return;
+  }
+
+  if (projectile.weapon === "luckyClover") {
+    const radius = 5 * scale;
+    context.fillStyle = evolved ? "#f7e26a" : "#74df90";
+    context.beginPath();
+    context.arc(x - radius * 0.72, y - radius * 0.72, radius, 0, Math.PI * 2);
+    context.arc(x + radius * 0.72, y - radius * 0.72, radius, 0, Math.PI * 2);
+    context.arc(x - radius * 0.72, y + radius * 0.72, radius, 0, Math.PI * 2);
+    context.arc(x + radius * 0.72, y + radius * 0.72, radius, 0, Math.PI * 2);
+    context.fill();
+    return;
+  }
+
+  if (projectile.weapon === "moonBookmark") {
+    context.fillStyle = evolved ? "#d7e9ff" : "#9fc9ff";
+    drawProjectileDiamond(context, x, y, rotation, 13 * scale, 4.5 * scale);
+    context.strokeStyle = evolved ? "#fff4a8" : "#d7e9ff";
+    context.lineWidth = Math.max(1, 2 * scale);
+    context.beginPath();
+    context.arc(x, y, 9 * scale, -0.4, 0.9);
+    context.stroke();
+    return;
+  }
+
+  if (projectile.weapon === "strawberryMilkshake") {
+    context.fillStyle = evolved ? "#ff94cf" : "#ffb2cf";
+    context.beginPath();
+    context.arc(x, y, 9 * scale, 0, Math.PI * 2);
+    context.fill();
+    context.fillStyle = "#fff1f7";
+    context.fillRect(x - 5 * scale, y - 7 * scale, 10 * scale, 5 * scale);
+    return;
+  }
+
+  const pulseRadius = (evolved ? 30 : 22) * scale;
+  context.strokeStyle = evolved ? "#d9fbff" : "#8fd9ff";
+  context.lineWidth = Math.max(2, 3 * scale);
+  context.beginPath();
+  context.arc(x, y, pulseRadius, 0, Math.PI * 2);
+  context.stroke();
+  context.fillStyle = evolved ? "rgba(190, 245, 255, 0.32)" : "rgba(110, 210, 255, 0.24)";
+  context.beginPath();
+  context.arc(x, y, pulseRadius * 0.46, 0, Math.PI * 2);
+  context.fill();
 }
 
 function unlockBattleAchievement(engine: EngineState, achievementId: string, showAchievement: (achievement: BattleAchievement) => void) {
@@ -2206,13 +2409,7 @@ function drawGame(
     const projectileAlpha = getProjectileAlpha(projectile);
     const projectileSizeScale = getProjectileSizeScale(engine);
     context.globalAlpha = projectileAlpha;
-    if (projectile.weapon === "starPulse") {
-      drawRotatedImageMaxSize(context, images.starPulseEffect, screenX, screenY, (engine.evolvedWeapons.starPulse ? 132 : 96) * projectileSizeScale, projectile.rotation * 0.36);
-      drawRotatedImageMaxSize(context, images.starPulse, screenX, screenY, (engine.evolvedWeapons.starPulse ? 58 : 42) * projectileSizeScale, projectile.rotation);
-    } else {
-      const size = projectile.weapon === "strawberryMilkshake" ? 34 : projectile.weapon === "mangoCake" ? 32 : 30;
-      drawRotatedImageMaxSize(context, images[projectile.weapon], screenX, screenY, size * projectileSizeScale, projectile.rotation);
-    }
+    drawProjectileGeometry(context, projectile, screenX, screenY, projectileSizeScale, engine.evolvedWeapons[projectile.weapon]);
     context.globalAlpha = 1;
   }
 
@@ -2318,7 +2515,6 @@ function acquireProjectile(
     pierce,
     explosive,
     bornAt,
-    hitIds: [],
     hitCount: 0,
   };
   projectile.id = engine.nextProjectileId;
@@ -2337,13 +2533,11 @@ function acquireProjectile(
   projectile.orbitAngularSpeed = options.orbitAngularSpeed;
   projectile.orbitAngle = options.orbitAngle;
   projectile.orbitRadius = options.orbitRadius;
-  projectile.hitIds.length = 0;
   projectile.hitCount = 0;
   return projectile;
 }
 
 function releaseProjectile(engine: EngineState, projectile: Projectile) {
-  projectile.hitIds.length = 0;
   projectile.hitCount = 0;
   if (engine.projectilePool.length < MAX_PLAYER_PROJECTILES) engine.projectilePool.push(projectile);
 }
@@ -2399,7 +2593,43 @@ function createProjectile(
   engine.nextProjectileId += 1;
 }
 
-function createOrbitProjectile(
+function enqueueProjectile(
+  engine: EngineState,
+  weapon: WeaponId,
+  x: number,
+  y: number,
+  angle: number,
+  speed: number,
+  damage: number,
+  pierce: number,
+  explosive: boolean,
+  options: ProjectileOptions = EMPTY_PROJECTILE_OPTIONS,
+) {
+  if (engine.pendingProjectiles.length - engine.pendingProjectileHead >= MAX_PENDING_PROJECTILE_SPAWNS) return;
+  const job = engine.pendingProjectilePool.pop() ?? {
+    weapon,
+    x,
+    y,
+    angle,
+    speed,
+    damage,
+    pierce,
+    explosive,
+    options,
+  };
+  job.weapon = weapon;
+  job.x = x;
+  job.y = y;
+  job.angle = angle;
+  job.speed = speed;
+  job.damage = damage;
+  job.pierce = pierce;
+  job.explosive = explosive;
+  job.options = options;
+  engine.pendingProjectiles.push(job);
+}
+
+function enqueueOrbitProjectile(
   engine: EngineState,
   weapon: WeaponId,
   angle: number,
@@ -2409,9 +2639,8 @@ function createOrbitProjectile(
   pierce: number,
   explosive: boolean,
   options: ProjectileOptions = EMPTY_PROJECTILE_OPTIONS,
-  bornAt = performance.now(),
 ) {
-  createProjectile(
+  enqueueProjectile(
     engine,
     weapon,
     engine.player.x + Math.cos(angle) * radius,
@@ -2427,34 +2656,73 @@ function createOrbitProjectile(
       orbitRadius: radius,
       ...options,
     },
-    bornAt,
   );
 }
 
-function projectileHasHit(projectile: Projectile, monsterId: number) {
-  for (let index = 0; index < projectile.hitCount; index += 1) {
-    if (projectile.hitIds[index] === monsterId) return true;
+function compactPendingProjectiles(engine: EngineState) {
+  if (engine.pendingProjectileHead === 0) return;
+  if (engine.pendingProjectileHead >= engine.pendingProjectiles.length) {
+    engine.pendingProjectiles.length = 0;
+    engine.pendingProjectileHead = 0;
+    return;
   }
-  return false;
+  if (engine.pendingProjectileHead < 32 || engine.pendingProjectileHead * 2 < engine.pendingProjectiles.length) return;
+  engine.pendingProjectiles.splice(0, engine.pendingProjectileHead);
+  engine.pendingProjectileHead = 0;
 }
 
-function recordProjectileHit(projectile: Projectile, monsterId: number) {
-  projectile.hitIds[projectile.hitCount] = monsterId;
+function releasePendingProjectile(engine: EngineState, job: PendingProjectileSpawn) {
+  job.options = EMPTY_PROJECTILE_OPTIONS;
+  if (engine.pendingProjectilePool.length < MAX_PENDING_PROJECTILE_SPAWNS) engine.pendingProjectilePool.push(job);
+}
+
+function processPendingProjectiles(engine: EngineState) {
+  if (engine.pendingProjectileHead >= engine.pendingProjectiles.length) {
+    compactPendingProjectiles(engine);
+    return;
+  }
+  const bornAt = performance.now();
+  let spawned = 0;
+  while (engine.pendingProjectileHead < engine.pendingProjectiles.length && spawned < PROJECTILE_SPAWNS_PER_FRAME) {
+    const job = engine.pendingProjectiles[engine.pendingProjectileHead];
+    engine.pendingProjectileHead += 1;
+    if (!job) break;
+    createProjectile(
+      engine,
+      job.weapon,
+      job.x,
+      job.y,
+      job.angle,
+      job.speed,
+      job.damage,
+      job.pierce,
+      job.explosive,
+      job.options,
+      bornAt,
+    );
+    releasePendingProjectile(engine, job);
+    spawned += 1;
+  }
+  compactPendingProjectiles(engine);
+}
+
+function recordProjectileHit(projectile: Projectile, monster: Monster) {
+  monster.lastHitProjectileId = projectile.id;
   projectile.hitCount += 1;
 }
 
-function retargetBouncingProjectile(engine: EngineState, projectile: Projectile) {
+function retargetBouncingProjectile(engine: EngineState, grid: MonsterSpatialGrid, projectile: Projectile) {
   let nextTarget: Monster | undefined;
   let nearestDistanceSq = Number.POSITIVE_INFINITY;
-  for (const monster of engine.monsters) {
-    if (monster.isDying || projectileHasHit(projectile, monster.id)) continue;
+  visitNearbyMonsters(engine, grid, projectile.x, projectile.y, 260, (monster) => {
+    if (monster.isDying || monster.lastHitProjectileId === projectile.id) return;
     const dx = monster.x - projectile.x;
     const dy = monster.y - projectile.y;
     const distanceSq = dx * dx + dy * dy;
-    if (distanceSq >= nearestDistanceSq) continue;
+    if (distanceSq >= nearestDistanceSq) return;
     nextTarget = monster;
     nearestDistanceSq = distanceSq;
-  }
+  });
   if (!nextTarget) return false;
 
   const dx = nextTarget.x - projectile.x;
@@ -2470,22 +2738,21 @@ function retargetBouncingProjectile(engine: EngineState, projectile: Projectile)
   return true;
 }
 
-function fireWeapon(engine: EngineState, weapon: WeaponId, target: Monster) {
+function fireWeapon(engine: EngineState, weapon: WeaponId, target: Monster, playFireAudio: boolean, now: number) {
   const level = Math.max(1, engine.weapons[weapon]);
   const power = 1 + (level - 1) * 0.16;
   const evolved = engine.evolvedWeapons[weapon];
   const dx = target.x - engine.player.x;
   const dy = target.y - engine.player.y;
   const baseAngle = Math.atan2(dy, dx);
-  const now = performance.now();
 
   if (weapon === "mangoCake") {
     const table = WEAPON_LEVELS[Math.min(WEAPON_LEVELS.length - 1, level - 1)];
     const total = table.count + engine.stats.projectileCount + (evolved ? 2 : 0);
     for (let index = 0; index < total; index += 1) {
-      createProjectile(engine, weapon, engine.player.x, engine.player.y, baseAngle + (index - (total - 1) / 2) * 0.14, getProjectileSpeed(engine, table.speed), table.damage * engine.stats.attack * (evolved ? 1.85 : 1), table.pierce + (evolved ? 3 : 0), table.explosive || evolved, EMPTY_PROJECTILE_OPTIONS, now);
+      enqueueProjectile(engine, weapon, engine.player.x, engine.player.y, baseAngle + (index - (total - 1) / 2) * 0.14, getProjectileSpeed(engine, table.speed), table.damage * engine.stats.attack * (evolved ? 1.85 : 1), table.pierce + (evolved ? 3 : 0), table.explosive || evolved);
     }
-    playAudioEvent("weaponCuteFire");
+    if (playFireAudio) playAudioEvent("weaponCuteFire");
     return;
   }
 
@@ -2496,7 +2763,7 @@ function fireWeapon(engine: EngineState, weapon: WeaponId, target: Monster) {
     const lifetimeMs = getMilkshakeLifetimeMs(engine);
     for (let index = 0; index < total; index += 1) {
       const angle = now * 0.003 + (Math.PI * 2 * index) / total;
-      createOrbitProjectile(
+      enqueueOrbitProjectile(
         engine,
         weapon,
         angle,
@@ -2506,19 +2773,18 @@ function fireWeapon(engine: EngineState, weapon: WeaponId, target: Monster) {
         level >= 7 ? 3 : 2,
         false,
         { customLifetimeMs: lifetimeMs },
-        now,
       );
     }
-    playAudioEvent("weaponCuteFire", { volume: 0.9 });
+    if (playFireAudio) playAudioEvent("weaponCuteFire", { volume: 0.9 });
     return;
   }
 
   if (weapon === "starlightPaperPlane") {
     const total = 1 + (level >= 5 ? 1 : 0) + engine.stats.projectileCount + (evolved ? 2 : 0);
     for (let index = 0; index < total; index += 1) {
-      createProjectile(engine, weapon, engine.player.x, engine.player.y, baseAngle + (index - (total - 1) / 2) * 0.18, getProjectileSpeed(engine, evolved ? 1280 : 1060), 10 * power * engine.stats.attack * (evolved ? 1.45 : 1), 1 + Math.floor(level / 3) + (evolved ? 5 : 0), false, EMPTY_PROJECTILE_OPTIONS, now);
+      enqueueProjectile(engine, weapon, engine.player.x, engine.player.y, baseAngle + (index - (total - 1) / 2) * 0.18, getProjectileSpeed(engine, evolved ? 1280 : 1060), 10 * power * engine.stats.attack * (evolved ? 1.45 : 1), 1 + Math.floor(level / 3) + (evolved ? 5 : 0), false);
     }
-    playAudioEvent("weaponMagicFire");
+    if (playFireAudio) playAudioEvent("weaponMagicFire");
     return;
   }
 
@@ -2526,9 +2792,9 @@ function fireWeapon(engine: EngineState, weapon: WeaponId, target: Monster) {
     const total = 1 + (level >= 5 ? 1 : 0) + engine.stats.projectileCount + (evolved ? 2 : 0);
     for (let index = 0; index < total; index += 1) {
       const randomAngle = Math.random() * Math.PI * 2;
-      createProjectile(engine, weapon, engine.player.x, engine.player.y, randomAngle + index * 0.16, getProjectileSpeed(engine, evolved ? 860 : 720), 12 * power * engine.stats.attack * (evolved ? 1.55 : 1), 3 + Math.floor(level / 2) + (evolved ? 4 : 0), evolved, EMPTY_PROJECTILE_OPTIONS, now);
+      enqueueProjectile(engine, weapon, engine.player.x, engine.player.y, randomAngle + index * 0.16, getProjectileSpeed(engine, evolved ? 860 : 720), 12 * power * engine.stats.attack * (evolved ? 1.55 : 1), 3 + Math.floor(level / 2) + (evolved ? 4 : 0), evolved);
     }
-    playAudioEvent("weaponMagicFire", { volume: 0.9 });
+    if (playFireAudio) playAudioEvent("weaponMagicFire", { volume: 0.9 });
     return;
   }
 
@@ -2537,7 +2803,7 @@ function fireWeapon(engine: EngineState, weapon: WeaponId, target: Monster) {
     const total = bookmark.count + engine.stats.projectileCount + (evolved ? 2 : 0);
     const bounceSpeed = getProjectileSpeed(engine, bookmark.speed * (evolved ? 1.18 : 1));
     for (let index = 0; index < total; index += 1) {
-      createProjectile(
+      enqueueProjectile(
         engine,
         weapon,
         engine.player.x,
@@ -2548,10 +2814,9 @@ function fireWeapon(engine: EngineState, weapon: WeaponId, target: Monster) {
         bookmark.pierce + (evolved ? 4 : 0),
         false,
         { bounceSpeed },
-        now,
       );
     }
-    playAudioEvent("weaponMagicFire", { volume: 0.85 });
+    if (playFireAudio) playAudioEvent("weaponMagicFire", { volume: 0.85 });
     return;
   }
 
@@ -2559,9 +2824,9 @@ function fireWeapon(engine: EngineState, weapon: WeaponId, target: Monster) {
   for (let index = 0; index < pulses; index += 1) {
     const angle = baseAngle + (Math.PI * 2 * index) / pulses;
     const offset = index === 0 ? 0 : 92;
-    createProjectile(engine, weapon, target.x + Math.cos(angle) * offset, target.y + Math.sin(angle) * offset, 0, 0, 16 * power * engine.stats.attack * (evolved ? 1.65 : 1), 99, true, EMPTY_PROJECTILE_OPTIONS, now);
+    enqueueProjectile(engine, weapon, target.x + Math.cos(angle) * offset, target.y + Math.sin(angle) * offset, 0, 0, 16 * power * engine.stats.attack * (evolved ? 1.65 : 1), 99, true);
   }
-  playAudioEvent("weaponTechFire", { volume: 1.08 });
+  if (playFireAudio) playAudioEvent("weaponTechFire", { volume: 1.08 });
 }
 
 function openChestRewards(
@@ -2872,13 +3137,16 @@ function updateEngine(
 
   triggerMapMechanic(engine);
 
+  const monsterLimit = getPhaseMonsterLimit(engine, phase);
   engine.spawnClock += delta;
-  if (engine.spawnClock >= getPhaseSpawnInterval(engine, phase) && countActiveMonsters(engine) < getPhaseMonsterLimit(engine, phase)) {
+  const activeAndQueuedMonsters = countActiveMonsters(engine) + engine.pendingMonsterSpawns.length - engine.pendingMonsterSpawnHead;
+  if (engine.spawnClock >= getPhaseSpawnInterval(engine, phase) && activeAndQueuedMonsters < monsterLimit) {
     engine.spawnClock = 0;
-    const spawnCount = Math.max(1, Math.round(phase.spawnCount * clampNumber(densityPressureScale, 0.82, 1.46)));
+    const spawnRoom = Math.max(0, monsterLimit - activeAndQueuedMonsters);
+    const spawnCount = Math.min(spawnRoom, Math.max(1, Math.round(phase.spawnCount * clampNumber(densityPressureScale, 0.82, 1.46))));
     for (let index = 0; index < spawnCount; index += 1) {
       const variant = pickEnemyVariant(engine, phase);
-      spawnVariantAtEdge(engine, width, height, zoom, variant, Math.random() < getPhaseEliteChance(engine, phase, variant), phase.directionMode, phase);
+      enqueueMonsterSpawn(engine, variant, Math.random() < getPhaseEliteChance(engine, phase, variant), phase.directionMode, phaseIndex);
     }
   }
 
@@ -2887,7 +3155,7 @@ function updateEngine(
   if (timelineElapsed >= 180 && engine.eliteSpawnClock >= eliteInterval) {
     engine.eliteSpawnClock = 0;
     const variant = pickEnemyVariant(engine, phase);
-    spawnVariantAtEdge(engine, width, height, zoom, variant, true, phase.directionMode, phase);
+    enqueueMonsterSpawn(engine, variant, true, phase.directionMode, phaseIndex);
   }
 
   const wave = phase.surroundWave;
@@ -2896,7 +3164,7 @@ function updateEngine(
     const waveInterval = wave.interval / Math.max(0.75, 1 + Math.max(0, engine.director.pressure) * getDynamicConfig().surroundPerPressure);
     if (engine.director.surroundClock >= waveInterval) {
       engine.director.surroundClock = 0;
-      spawnSurroundWave(engine, width, height, zoom, phase);
+      spawnSurroundWave(engine, phase, phaseIndex);
     }
   }
 
@@ -2906,6 +3174,9 @@ function updateEngine(
     playAudioEvent("bossSpawn");
   }
 
+  processPendingMonsterSpawns(engine, width, height, zoom, monsterLimit);
+
+  let offscreenRespawnsQueued = 0;
   for (const monster of engine.monsters) {
     if (monster.isDying) continue;
     const config = getMonsterConfig(monster.kind);
@@ -2952,15 +3223,23 @@ function updateEngine(
     const offX = Math.abs(monster.x - engine.player.x) - width / 2 / zoom;
     const offY = Math.abs(monster.y - engine.player.y) - height / 2 / zoom;
     if (!config.isBoss && Math.max(offX, offY) > 360) {
-      if (variant) spawnVariantAtEdge(engine, width, height, zoom, variant, false, phase.directionMode, phase);
-      else spawnAtEdge(engine, width, height, zoom, config, false, phase.directionMode, undefined, phase);
+      if (offscreenRespawnsQueued < MAX_OFFSCREEN_RESPAWNS_PER_FRAME) {
+        const respawnVariant = variant ?? getFallbackVariantForMonster(config.id);
+        if (respawnVariant) {
+          enqueueMonsterSpawn(engine, respawnVariant, false, phase.directionMode, phaseIndex);
+          offscreenRespawnsQueued += 1;
+        }
+      }
       monster.isDying = true;
       monster.dyingAt = now - MONSTER_DEATH_MS;
     }
   }
 
-  resolveMonsterCollisions(engine);
-  applyMonsterContactDamage(engine, timelineElapsed, phase, damagePressureScale, now);
+  let monsterSpatialGrid = buildMonsterSpatialGrid(engine.monsterSpatialGrid, engine.monsters);
+  if (resolveMonsterCollisions(engine, monsterSpatialGrid)) {
+    monsterSpatialGrid = buildMonsterSpatialGrid(engine.monsterSpatialGrid, engine.monsters);
+  }
+  applyMonsterContactDamage(engine, monsterSpatialGrid, timelineElapsed, phase, damagePressureScale, now);
 
   for (const projectile of engine.enemyProjectiles) {
     projectile.x += projectile.vx * delta;
@@ -2979,7 +3258,9 @@ function updateEngine(
     return !isProjectilePastScreen(projectile, engine, width, height, zoom);
   });
 
-  const target = getCachedNearestMonster(engine, width, height, zoom, now);
+  const target = getCachedNearestMonster(engine, monsterSpatialGrid, width, height, zoom, now);
+  let weaponAudioPlayed = false;
+  let weaponFiresThisFrame = 0;
   if (target) {
     for (const weaponId of WEAPON_IDS) {
       if (engine.weapons[weaponId] <= 0) continue;
@@ -2987,14 +3268,27 @@ function updateEngine(
       const weaponCooldown = WEAPON_COOLDOWNS[weaponId];
       const cooldown = (engine.evolvedWeapons[weaponId] ? weaponCooldown.evolved : weaponCooldown.normal) * engine.stats.cooldown;
       if (engine.weaponFireClocks[weaponId] >= cooldown) {
-        fireWeapon(engine, weaponId, target);
+        if (weaponFiresThisFrame >= MAX_WEAPON_FIRES_PER_FRAME) continue;
+        const canPlayFireAudio = ENABLE_PLAYER_WEAPON_FIRE_SFX && !weaponAudioPlayed && now - engine.lastWeaponFireAudioAt >= WEAPON_FIRE_AUDIO_COOLDOWN_MS;
+        fireWeapon(engine, weaponId, target, canPlayFireAudio, now);
+        if (canPlayFireAudio) {
+          weaponAudioPlayed = true;
+          engine.lastWeaponFireAudioAt = now;
+        }
+        weaponFiresThisFrame += 1;
         engine.weaponFireClocks[weaponId] = weaponId === "strawberryMilkshake" ? -getMilkshakeLifetimeMs(engine) / 1000 : 0;
       }
     }
   }
 
-  const monsterSpatialGrid = buildMonsterSpatialGrid(engine.monsterSpatialGrid, engine.monsters);
-  for (const projectile of engine.projectiles) {
+  processPendingProjectiles(engine);
+
+  let frameHitAudioCount = 0;
+  const projectileCount = engine.projectiles.length;
+  const collisionStart = projectileCount > 0 ? engine.projectileCollisionCursor % projectileCount : 0;
+  const collisionBudget = Math.min(PROJECTILE_COLLISION_CHECKS_PER_FRAME, projectileCount);
+  for (let index = 0; index < projectileCount; index += 1) {
+    const projectile = engine.projectiles[index];
     const hitRadius = getProjectileHitRadius(projectile, engine);
     if (projectile.orbitRadius !== undefined && projectile.orbitAngle !== undefined && projectile.orbitAngularSpeed !== undefined) {
       projectile.orbitAngle += projectile.orbitAngularSpeed * delta;
@@ -3006,14 +3300,17 @@ function updateEngine(
       projectile.y += projectile.vy * delta;
       projectile.rotation += delta * 6;
     }
+    const collisionOrder = (index - collisionStart + projectileCount) % projectileCount;
+    if (collisionOrder >= collisionBudget) continue;
     visitNearbyMonsters(engine, monsterSpatialGrid, projectile.x, projectile.y, hitRadius, (monster) => {
-      if (monster.isDying || projectileHasHit(projectile, monster.id)) return;
+      if (monster.isDying || monster.lastHitProjectileId === projectile.id) return;
       const hitDistance = hitRadius + monster.radius;
       const hitDx = projectile.x - monster.x;
       const hitDy = projectile.y - monster.y;
       if (hitDx * hitDx + hitDy * hitDy > hitDistance * hitDistance) return;
       damageMonster(monster, projectile.damage);
-      recordProjectileHit(projectile, monster.id);
+      recordProjectileHit(projectile, monster);
+      frameHitAudioCount += 1;
       if (projectile.explosive) {
         const splashRadius = hitRadius * 2.6;
         const splashRadiusSq = splashRadius * splashRadius;
@@ -3023,19 +3320,21 @@ function updateEngine(
           const splashDy = projectile.y - splash.y;
           if (splashDx * splashDx + splashDy * splashDy <= splashRadiusSq) {
             damageMonster(splash, projectile.damage * (projectile.weapon === "starPulse" ? 0.68 : 0.45));
+            frameHitAudioCount += 1;
           }
         });
       }
       const canContinue = projectile.hitCount <= projectile.pierce;
       if (projectile.weapon === "moonBookmark") {
-        if (!canContinue || !retargetBouncingProjectile(engine, projectile)) projectile.bornAt = 0;
+        if (!canContinue || !retargetBouncingProjectile(engine, monsterSpatialGrid, projectile)) projectile.bornAt = 0;
       } else if (!canContinue) {
         projectile.bornAt = 0;
       }
-      playAudioEvent("enemyHit");
       return false;
     });
   }
+  engine.projectileCollisionCursor = projectileCount > 0 ? (collisionStart + collisionBudget) % projectileCount : 0;
+  if (frameHitAudioCount > 0) playAudioEvent("enemyHit", { count: frameHitAudioCount });
 
   compactProjectiles(engine, (projectile) => {
     if (projectile.bornAt <= 0) return false;
@@ -3088,6 +3387,10 @@ function updateEngine(
       pickup.y += (dy / distance) * 420 * delta;
     }
   }
+  let pickupExpAudioCount = 0;
+  let pickupCoinAudioCount = 0;
+  let pickupHealAudioCount = 0;
+  let pickupItemAudioCount = 0;
   compactArray(engine.pickups, (pickup) => {
     const collectRadius = PLAYER_RADIUS + 14;
     const dx = pickup.x - engine.player.x;
@@ -3095,46 +3398,50 @@ function updateEngine(
     if (dx * dx + dy * dy > collectRadius * collectRadius) return true;
     if (pickup.type === "exp") {
       engine.xp += pickup.value;
-      playAudioEvent("pickupExp");
+      pickupExpAudioCount += 1;
     }
     if (pickup.type === "coin") {
       engine.coins += pickup.value;
-      playAudioEvent("pickupCoin");
+      pickupCoinAudioCount += 1;
     }
     if (pickup.type === "heal") {
       engine.stats.hp = Math.min(engine.stats.maxHp, engine.stats.hp + pickup.value);
-      playAudioEvent("playerHeal");
+      pickupHealAudioCount += 1;
     }
     if (pickup.type === "luckyStar") {
       addStat(engine, "luck", 0.04);
       addStat(engine, "attack", 0.04);
-      playAudioEvent("pickupItem");
+      pickupItemAudioCount += 1;
     }
     if (pickup.type === "energyDrink") {
       addStat(engine, "attackSpeed", 0.08);
-      playAudioEvent("pickupItem", { volume: 0.92 });
+      pickupItemAudioCount += 1;
     }
     if (pickup.type === "mysteryBox") {
       const roll = Math.random();
       if (roll < 0.28) {
         engine.coins += Math.round((28 + Math.round(engine.stats.luck * 50)) * engine.difficultyPreset.coinRewardMultiplier);
-        playAudioEvent("pickupCoin");
+        pickupCoinAudioCount += 1;
       } else if (roll < 0.56) {
         engine.xp += Math.round(engine.xpToNext * 0.45);
-        playAudioEvent("pickupExp");
+        pickupExpAudioCount += 1;
       } else if (roll < 0.78) {
         engine.stats.hp = Math.min(engine.stats.maxHp, engine.stats.hp + Math.round(engine.stats.maxHp * 0.35));
-        playAudioEvent("playerHeal");
+        pickupHealAudioCount += 1;
       } else {
         openChestRewards(engine, roll > 0.95 ? "legendary" : "rare", setOverlay, setChestChoices);
       }
     }
-  if (pickup.type === "chest") {
+    if (pickup.type === "chest") {
       openChestRewards(engine, pickup.chestTier ?? "normal", setOverlay, setChestChoices);
     }
     releasePickup(engine, pickup);
     return false;
   });
+  if (pickupExpAudioCount > 0) playAudioEvent("pickupExp", { count: pickupExpAudioCount });
+  if (pickupCoinAudioCount > 0) playAudioEvent("pickupCoin", { count: pickupCoinAudioCount });
+  if (pickupHealAudioCount > 0) playAudioEvent("playerHeal", { count: pickupHealAudioCount });
+  if (pickupItemAudioCount > 0) playAudioEvent("pickupItem", { count: pickupItemAudioCount });
 
   processPendingLevelUp(engine, setOverlay, setLevelChoices, showAchievement);
 
@@ -3186,21 +3493,10 @@ export function BattleScreen({
   const [evolutionFlash, setEvolutionFlash] = useState(false);
   const [ui, setUi] = useState<UiState>(() => uiFromEngine(engineRef.current));
   const { settings, setSettings } = useGameSettings();
-  const [isFullscreen, setIsFullscreen] = useState(false);
 
   function setOverlay(overlayValue: Overlay) {
     overlayRef.current = overlayValue;
     setOverlayState(overlayValue);
-  }
-
-  async function toggleFullscreen() {
-    if (document.fullscreenElement) {
-      await document.exitFullscreen();
-      return;
-    }
-
-    const fullscreenTarget = document.getElementById("viewport") ?? document.documentElement;
-    await fullscreenTarget.requestFullscreen();
   }
 
   function previewSfxVolume() {
@@ -3222,19 +3518,6 @@ export function BattleScreen({
     setUi(uiFromEngine(engineRef.current));
     setOverlay("none");
   }, [durationSeconds, testFullBuild, mapId, difficultyId, archivedAchievements]);
-
-  useEffect(() => {
-    function syncFullscreenState() {
-      setIsFullscreen(Boolean(document.fullscreenElement));
-    }
-
-    syncFullscreenState();
-    document.addEventListener("fullscreenchange", syncFullscreenState);
-
-    return () => {
-      document.removeEventListener("fullscreenchange", syncFullscreenState);
-    };
-  }, []);
 
   useEffect(() => {
     if (overlay === "none") return;
@@ -3611,10 +3894,6 @@ export function BattleScreen({
                 />
                 <strong>{settings.sfx}%</strong>
               </label>
-              <button type="button" className="battle-setting-button" onClick={toggleFullscreen}>
-                <span aria-hidden="true">{isFullscreen ? <Minimize2 size={17} strokeWidth={2.4} /> : <Maximize2 size={17} strokeWidth={2.4} />}</span>
-                {isFullscreen ? "退出全屏" : "全屏"}
-              </button>
             </div>
             <button type="button" className="battle-pause-action battle-pause-action--primary" onClick={() => setOverlay("none")}>
               <Play aria-hidden="true" size={17} strokeWidth={2.6} />

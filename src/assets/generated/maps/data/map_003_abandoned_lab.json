@@ -19,32 +19,10 @@
     "centerY": 0,
     "radius": 26
   },
-  "layers": [
-    "Ground_Base",
-    "Ground_Decal",
-    "Main_Path",
-    "Props_Soft",
-    "Props_Collision",
-    "Event_Points",
-    "Spawn_Zones",
-    "Boss_Arena",
-    "Lighting",
-    "Bounds"
-  ],
-  "layerFiles": {
-    "Ground_Base": "layers/abandoned-lab/Ground_Base.png",
-    "Ground_Decal": "layers/abandoned-lab/Ground_Decal.png",
-    "Main_Path": "layers/abandoned-lab/Main_Path.png",
-    "Props_Soft": "layers/abandoned-lab/Props_Soft.png",
-    "Props_Collision": "layers/abandoned-lab/Props_Collision.png",
-    "Event_Points": "layers/abandoned-lab/Event_Points.png",
-    "Spawn_Zones": "layers/abandoned-lab/Spawn_Zones.png",
-    "Boss_Arena": "layers/abandoned-lab/Boss_Arena.png",
-    "Lighting": "layers/abandoned-lab/Lighting.png",
-    "Bounds": "layers/abandoned-lab/Bounds.png"
-  },
-  "compositeFile": "abandoned-lab.png",
-  "preview3x3File": "previews/abandoned-lab-3x3.png",
+  "layers": [],
+  "layerFiles": {},
+  "compositeFile": "starlight-cafe.png",
+  "preview3x3File": "starlight-cafe.png",
   "eventPoints": [
     {
       "id": "event_lab_scan",

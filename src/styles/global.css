@@ -4139,3 +4139,237 @@ button {
     padding: 16px;
   }
 }
+
+@media (min-width: 700px) and (min-height: 700px) {
+  :root {
+    --frame-padding: clamp(18px, 2.2vw, 30px);
+  }
+
+  #viewport {
+    padding: clamp(10px, 1.4vw, 20px);
+  }
+
+  .game-frame--menu,
+  .game-frame--codex,
+  .game-frame--character-select,
+  .game-frame--xingli-chat {
+    width: min(calc(100dvw - 20px), 920px);
+    height: min(calc(100dvh - 20px), 860px);
+    aspect-ratio: auto;
+    padding: clamp(18px, 2vw, 28px);
+  }
+
+  .game-frame--battle {
+    width: min(calc(100dvw - 16px), 960px);
+    height: min(calc(100dvh - 16px), 760px);
+    aspect-ratio: auto;
+  }
+
+  .lobby-screen {
+    width: min(100%, 860px);
+  }
+
+  .lobby-hero {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(260px, 0.9fr) minmax(300px, 1fr);
+    align-items: center;
+    gap: clamp(20px, 4vw, 44px);
+  }
+
+  .lobby-hero__stage {
+    width: 100%;
+    height: min(54dvh, 520px);
+  }
+
+  .lobby-hero__portrait {
+    width: min(74%, 340px);
+  }
+
+  .lobby-hero__copy {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .lobby-hero__copy .title-block__subtitle,
+  .lobby-hero__copy .title-block__title {
+    text-align: left;
+  }
+
+  .lobby-action-stack {
+    width: min(100%, 540px);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lobby-action-stack .btn-start--lobby {
+    grid-column: 1 / -1;
+  }
+
+  .codex-page {
+    gap: 12px;
+  }
+
+  .codex-page-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    padding-bottom: clamp(150px, 24vh, 230px);
+  }
+
+  .codex-detail-bar {
+    min-height: clamp(150px, 24%, 220px);
+    grid-template-columns: 110px minmax(0, 1fr);
+  }
+
+  .character-select {
+    grid-template-rows: auto auto minmax(240px, 1fr) auto auto;
+    gap: 10px;
+    padding-bottom: calc(112px + env(safe-area-inset-bottom));
+  }
+
+  .selected-map-hero {
+    min-height: 240px;
+  }
+
+  .map-carousel {
+    min-height: 96px;
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    overflow: visible;
+  }
+
+  .map-mini-card {
+    min-height: 88px;
+    flex: none;
+  }
+
+  .difficulty-button-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .difficulty-mini-button {
+    min-height: 66px;
+  }
+
+  .attribute-modal-panel,
+  .settings-dialog__panel {
+    width: min(100%, 460px);
+  }
+
+  .xingli-chat-page {
+    border-radius: 10px;
+  }
+
+  .xingli-chat-character {
+    inset: 5% 0 32%;
+  }
+
+  .xingli-chat-character img {
+    width: min(72%, 380px);
+  }
+
+  .xingli-chat-layer {
+    left: clamp(18px, 3vw, 32px);
+    right: clamp(18px, 3vw, 32px);
+    top: var(--xingli-chat-scroll-top);
+  }
+
+  .xingli-chat-input {
+    left: 50%;
+    right: auto;
+    width: min(calc(100% - 48px), 720px);
+    transform: translateX(-50%);
+  }
+
+  .battle-top-exp {
+    width: min(42vw, 460px);
+  }
+
+  .battle-side-counters {
+    width: min(20vw, 156px);
+  }
+
+  .battle-loadout-panel {
+    width: min(190px, 22vw);
+  }
+}
+
+@media (min-width: 1100px) and (orientation: landscape) {
+  #viewport {
+    padding: clamp(18px, 2vw, 32px);
+  }
+
+  .game-frame--menu,
+  .game-frame--codex,
+  .game-frame--character-select,
+  .game-frame--xingli-chat {
+    width: min(calc(100dvw - 48px), 1180px);
+    height: min(calc(100dvh - 48px), 760px);
+  }
+
+  .game-frame--battle {
+    width: min(calc(100dvw - 32px), 1180px);
+    height: min(calc(100dvh - 32px), 760px);
+  }
+
+  .lobby-screen {
+    width: min(100%, 1040px);
+  }
+
+  .lobby-hero {
+    grid-template-columns: minmax(360px, 0.95fr) minmax(360px, 1fr);
+  }
+
+  .lobby-hero__stage {
+    height: min(64dvh, 560px);
+  }
+
+  .codex-page-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .character-select {
+    grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.4fr);
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    align-items: stretch;
+    padding-bottom: calc(108px + env(safe-area-inset-bottom));
+  }
+
+  .character-select__topbar {
+    grid-column: 1 / -1;
+  }
+
+  .prep-character-card {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .selected-map-hero {
+    grid-column: 2;
+    grid-row: 2 / 4;
+    min-height: 0;
+  }
+
+  .map-carousel {
+    grid-column: 2;
+    grid-row: 4;
+  }
+
+  .difficulty-compact {
+    grid-column: 1;
+    grid-row: 3 / 5;
+    align-content: start;
+  }
+
+  .difficulty-button-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .xingli-chat-layer {
+    left: clamp(32px, 5vw, 92px);
+    right: clamp(32px, 5vw, 92px);
+  }
+
+  .battle-level-panel {
+    width: min(82%, 760px);
+  }
+}

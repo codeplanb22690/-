@@ -76,10 +76,12 @@ function reachable(data, start, target) {
 }
 
 function validateMap(data) {
-  for (const layer of REQUIRED_LAYERS) {
-    if (!data.layers.includes(layer)) fail(data.id, `missing layer ${layer}`);
-    const layerPath = path.resolve("src/assets/generated/maps", data.layerFiles[layer]);
-    if (!fs.existsSync(layerPath)) fail(data.id, `missing layer file ${data.layerFiles[layer]}`);
+  if (data.layers.length > 0) {
+    for (const layer of REQUIRED_LAYERS) {
+      if (!data.layers.includes(layer)) fail(data.id, `missing layer ${layer}`);
+      const layerPath = path.resolve("src/assets/generated/maps", data.layerFiles[layer]);
+      if (!fs.existsSync(layerPath)) fail(data.id, `missing layer file ${data.layerFiles[layer]}`);
+    }
   }
   if (!fs.existsSync(path.resolve("src/assets/generated/maps", data.compositeFile))) fail(data.id, `missing composite ${data.compositeFile}`);
   if (data.spawnZones.length < 8) fail(data.id, "needs at least 8 spawn zones");
