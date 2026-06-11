@@ -218,6 +218,13 @@ export function startBattleMusic(options: BattleMusicOptions = {}): void {
 
 export function updateBattleMusic(options: BattleMusicOptions): void {
   if (musicState.mode !== "battle") return;
+  if (
+    (options.ducked === undefined || options.ducked === musicState.ducked) &&
+    (options.intensity === undefined || options.intensity === musicState.intensity) &&
+    (options.paused === undefined || options.paused === musicState.paused)
+  ) {
+    return;
+  }
   Object.assign(musicState, options);
   syncMusicPlayback();
 }

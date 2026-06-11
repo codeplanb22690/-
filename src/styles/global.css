@@ -1037,6 +1037,13 @@ button {
   filter: drop-shadow(0 0 10px rgba(142, 232, 255, 0.22));
 }
 
+.codex-entry-image {
+  display: block;
+  object-fit: contain;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 0 10px rgba(142, 232, 255, 0.18));
+}
+
 .codex-page-card__icon span {
   color: rgba(255, 241, 168, 0.84);
   font-family: var(--font-display);
@@ -2716,6 +2723,15 @@ button {
   width: 100%;
   height: 100%;
   display: block;
+  min-width: 0;
+  min-height: 0;
+  image-rendering: pixelated;
+}
+
+.battle-canvas canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
   image-rendering: pixelated;
 }
 
@@ -3240,6 +3256,13 @@ button {
   height: 46px;
   color: #8ee8ff;
   filter: drop-shadow(0 0 12px rgba(142, 232, 255, 0.24));
+}
+
+.battle-icon-image {
+  display: block;
+  object-fit: contain;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 0 12px rgba(255, 179, 71, 0.24));
 }
 
 .battle-upgrade-card strong {
@@ -3923,6 +3946,10 @@ button {
   }
 
   .battle-upgrade-card svg {
+    grid-row: span 2;
+  }
+
+  .battle-icon-image {
     grid-row: span 2;
   }
 }

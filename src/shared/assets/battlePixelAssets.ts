@@ -1,6 +1,7 @@
 import type { CatalogMonsterId, CatalogRelicId, CatalogWeaponId } from "@/features/catalog/gameCatalog";
 
 const w001MangoCakeWeaponUrl = new URL("../../assets/battle-pixel/weapons/w001_mango_cake_weapon.png", import.meta.url).href;
+const w001MangoCakeDisplayUrl = new URL("../../assets/generated/battle-optimized/weapons/mango-cake.png", import.meta.url).href;
 const w001RainbowLayerCakeWeaponUrl = new URL("../../assets/battle-pixel/weapons/w001_rainbow_layer_cake_weapon.png", import.meta.url).href;
 const w001MangoCakeProjectileUrl = new URL("../../assets/battle-pixel/projectiles/w001_mango_cake_projectile.png", import.meta.url).href;
 const w001RainbowLayerCakeProjectileUrl = new URL("../../assets/battle-pixel/projectiles/w001_rainbow_layer_cake_projectile.png", import.meta.url).href;
@@ -72,6 +73,11 @@ export const BATTLE_PIXEL_WEAPON_ICONS: Record<CatalogWeaponId, string> = {
   starPulse: w006StarOrbitPulseWeaponUrl,
 };
 
+export const BATTLE_PIXEL_WEAPON_DISPLAY_IMAGES: Record<CatalogWeaponId, string> = {
+  ...BATTLE_PIXEL_WEAPON_ICONS,
+  mangoCake: w001MangoCakeDisplayUrl,
+};
+
 export const BATTLE_PIXEL_EVOLVED_WEAPON_ICONS: Record<CatalogWeaponId, string> = {
   mangoCake: w001RainbowLayerCakeWeaponUrl,
   strawberryMilkshake: w002SweetDreamMilkshakeStormWeaponUrl,
@@ -125,12 +131,13 @@ export const BATTLE_PIXEL_MONSTER_IMAGES: Record<CatalogMonsterId, string> = {
 
 export const BATTLE_PIXEL_CODEX_IMAGES: Record<string, string> = {
   ...BATTLE_PIXEL_MONSTER_IMAGES,
-  ...BATTLE_PIXEL_WEAPON_ICONS,
+  ...BATTLE_PIXEL_WEAPON_DISPLAY_IMAGES,
   ...BATTLE_PIXEL_RELIC_ICONS,
 };
 
 export const BATTLE_PIXEL_PRELOAD_URLS = [
   ...Object.values(BATTLE_PIXEL_WEAPON_ICONS),
+  ...Object.values(BATTLE_PIXEL_WEAPON_DISPLAY_IMAGES),
   ...Object.values(BATTLE_PIXEL_EVOLVED_WEAPON_ICONS),
   ...Object.values(BATTLE_PIXEL_PROJECTILES),
   ...Object.values(BATTLE_PIXEL_EVOLVED_PROJECTILES),

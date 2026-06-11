@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 
 import type { CodexEntry } from "@/features/catalog/codexEntries";
+import { BATTLE_PIXEL_CODEX_IMAGES } from "@/shared/assets/battlePixelAssets";
 
 const ICONS_BY_ENTRY_ID: Record<string, LucideIcon> = {
   "lost-dango": ShieldQuestion,
@@ -63,6 +64,11 @@ type CodexIconProps = {
 };
 
 export function CodexIcon({ entry, size = 28 }: CodexIconProps) {
+  const image = BATTLE_PIXEL_CODEX_IMAGES[entry.id];
+  if (image) {
+    return <img src={image} alt="" className="codex-entry-image" style={{ width: size, height: size }} />;
+  }
+
   const Icon = ICONS_BY_ENTRY_ID[entry.id] ?? FALLBACK_ICONS[entry.category];
   return <Icon aria-hidden="true" size={size} strokeWidth={2.35} />;
 }

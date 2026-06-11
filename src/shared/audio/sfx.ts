@@ -481,7 +481,10 @@ export function prewarmBattleSfx(): void {
   if (battleSfxPrewarmStarted) return;
   battleSfxPrewarmStarted = true;
   const events: AudioEventId[] = [
+    "uiConfirm",
+    "uiPopup",
     "playerHurt",
+    "levelUp",
     "enemyHitCluster",
     "enemyHitBurst",
     "enemyDeathCombo",
@@ -490,6 +493,8 @@ export function prewarmBattleSfx(): void {
     "pickupExpStream",
     "pickupCoin",
     "pickupItem",
+    "chestOpen",
+    "evolveComplete",
     "bossSpawn",
     "bossDefeat",
   ];

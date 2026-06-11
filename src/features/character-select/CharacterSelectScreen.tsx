@@ -37,6 +37,7 @@ type CharacterSelectScreenProps = {
   onSelectMap: (mapId: MapId) => void;
   onSelectDifficulty: (difficultyId: DifficultyId) => void;
   onEnterBattle: () => void;
+  isPreparingBattleAssets?: boolean;
 };
 
 export function CharacterSelectScreen({
@@ -49,6 +50,7 @@ export function CharacterSelectScreen({
   onSelectMap,
   onSelectDifficulty,
   onEnterBattle,
+  isPreparingBattleAssets = false,
 }: CharacterSelectScreenProps) {
   const selectedCharacter = characters[0];
   const selectedMap = getMapConfig(selectedMapId);
@@ -58,7 +60,7 @@ export function CharacterSelectScreen({
   const selectedDifficultyUnlocked = isDifficultyUnlocked(selectedDifficultyId);
   const normalCleared = Boolean(mapClearRecords[selectedMapId]?.DIFF001?.cleared);
   const battleBlockedReason = !selectedMapUnlocked ? selectedMap.unlockHint : !selectedDifficultyUnlocked ? selectedDifficulty.unlockHint : "";
-  const canEnterBattle = selectedMapUnlocked && selectedDifficultyUnlocked;
+  const canEnterBattle = selectedMapUnlocked && selectedDifficultyUnlocked && !isPreparingBattleAssets;
   const hpStat = selectedCharacter.stats.find((stat) => stat.kind === "health");
   const luckStat = selectedCharacter.stats.find((stat) => stat.kind === "luck");
   const weaponStat = selectedCharacter.stats.find((stat) => stat.kind === "weapon");
@@ -163,12 +165,12 @@ export function CharacterSelectScreen({
       <div className="battle-bottom-bar" aria-label="战斗操作">
         <p>
           <span>{selectedMap.name} / {selectedDifficulty.name}</span>
-          <strong>{battleBlockedReason || "准备就绪"}</strong>
+          <strong>{battleBlockedReason || (isPreparingBattleAssets ? "资源准备中" : "准备就绪")}</strong>
         </p>
         <div className="battle-bottom-bar__actions">
           <button type="button" className="btn-battle" disabled={!canEnterBattle} onClick={onEnterBattle}>
             <Swords aria-hidden="true" size={18} strokeWidth={2.6} />
-            {canEnterBattle ? "进入战斗" : "未解锁"}
+            {selectedMapUnlocked && selectedDifficultyUnlocked ? (isPreparingBattleAssets ? "准备中" : "进入战斗") : "未解锁"}
           </button>
         </div>
       </div>

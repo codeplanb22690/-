@@ -2,6 +2,7 @@ import { BookOpen, MessageCircle, Play, Settings } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { BattleScreen } from "@/features/battle/BattleScreen";
+import { prewarmBattleAssets } from "@/features/battle/battleAssetLoader";
 import { MONSTER_CATALOG, RELIC_CATALOG, WEAPON_CATALOG } from "@/features/catalog/gameCatalog";
 import { CodexPage } from "@/features/catalog/CodexPage";
 import { characters } from "@/features/character-select/characters";
@@ -14,6 +15,7 @@ import { createLastRunSummary, readLastRunSummary, saveLastRunSummary } from "@/
 import { markXingliProactiveToastShown, readXingliMessageState, shouldShowXingliProactiveToast } from "@/services/xingliChatStorage";
 import { consumePendingProactiveMessage, createPendingProactiveMessage, readPendingProactiveMessage } from "@/services/xingliProactiveService";
 import { startLobbyMusic, stopLobbyMusic } from "@/shared/audio/music";
+import { prewarmBattleSfx } from "@/shared/audio/sfx";
 
 import type { BattleSummary } from "@/features/battle/BattleScreen";
 import type { DifficultyId, MapId } from "@/features/maps/mapConfigs";
@@ -135,6 +137,8 @@ export function MainMenuPage() {
   const [testFullBuild, setTestFullBuild] = useState(false);
   const [selectedMapId, setSelectedMapId] = useState<MapId>("MAP001");
   const [selectedDifficultyId, setSelectedDifficultyId] = useState<DifficultyId>("DIFF001");
+  const [battleAssetsReady, setBattleAssetsReady] = useState(false);
+  const [isEnteringBattle, setIsEnteringBattle] = useState(false);
   const [archive, setArchive] = useState<ArchiveSave>(() => readArchive());
   const [lastRunSummary, setLastRunSummary] = useState<LastRunSummary | null>(() => readLastRunSummary());
   const [pendingProactiveMessage, setPendingProactiveMessage] = useState<PendingProactiveMessage | null>(() => readPendingProactiveMessage());
@@ -153,6 +157,19 @@ export function MainMenuPage() {
 
     startLobbyMusic();
   }, [screen]);
+
+  useEffect(() => {
+    if (screen === "battle") return;
+    let cancelled = false;
+    setBattleAssetsReady(false);
+    prewarmBattleSfx();
+    prewarmBattleAssets(selectedMapId).catch(() => undefined).then(() => {
+      if (!cancelled) setBattleAssetsReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [screen, selectedMapId]);
 
   useEffect(() => {
     setXingliMessageState(readXingliMessageState(pendingProactiveMessage));
@@ -175,10 +192,17 @@ export function MainMenuPage() {
     setScreen("character-select");
   }
 
-  function enterBattle() {
+  async function enterBattle() {
+    if (isEnteringBattle) return;
+    setIsEnteringBattle(true);
     setBattleDurationSeconds(15 * 60);
     setTestFullBuild(false);
-    setScreen("battle");
+    try {
+      await prewarmBattleAssets(selectedMapId);
+      setScreen("battle");
+    } finally {
+      setIsEnteringBattle(false);
+    }
   }
 
   function completeBattle(summary: BattleSummary) {
@@ -367,6 +391,7 @@ export function MainMenuPage() {
                   onSelectMap={setSelectedMapId}
                   onSelectDifficulty={setSelectedDifficultyId}
                   onEnterBattle={enterBattle}
+                  isPreparingBattleAssets={isEnteringBattle || !battleAssetsReady}
                 />
               )}
             </div>

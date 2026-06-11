@@ -26,30 +26,24 @@ import { useEffect, useRef, useState } from "react";
 
 import { MONSTER_CATALOG_BY_ID, RELIC_CATALOG, RELIC_CATALOG_BY_ID } from "@/features/catalog/gameCatalog";
 import { characters } from "@/features/character-select/characters";
+import { loadBattleImages } from "@/features/battle/battleAssetLoader";
+import { createPixiBattleRenderer } from "@/features/battle/pixiBattleRenderer";
 import difficultyCurveData from "@/features/battle/config/difficulty_curve.json";
 import enemyTiersData from "@/features/battle/config/enemy_tiers.json";
 import { getDifficultyPreset, getMapConfig } from "@/features/maps/mapConfigs";
 import { getPlayableMapData, mapTileToWorld, PLAYABLE_MAP_TILE_WORLD_SIZE } from "@/features/maps/playableMapData";
 import { useGameSettings } from "@/features/settings/useGameSettings";
-import {
-  BATTLE_PIXEL_MONSTER_IMAGES,
-  BATTLE_PIXEL_RELIC_ICONS,
-} from "@/shared/assets/battlePixelAssets";
+import { BATTLE_PIXEL_WEAPON_DISPLAY_IMAGES } from "@/shared/assets/battlePixelAssets";
 import { startBattleMusic, stopBattleMusic, updateBattleMusic } from "@/shared/audio/music";
 import { playAudioEvent, prewarmBattleSfx } from "@/shared/audio/sfx";
 
 import type { PointerEvent as ReactPointerEvent } from "react";
 import type { CatalogMonsterId, CatalogRelicId } from "@/features/catalog/gameCatalog";
+import type { BattleImageKey } from "@/features/battle/battleAssetLoader";
+import type { PixiBattleRenderer } from "@/features/battle/pixiBattleRenderer";
 import type { DifficultyId, DifficultyPreset, GameMapConfig, MapId } from "@/features/maps/mapConfigs";
 import type { PlayableMapData, PlayableMapRect, PlayableMapSpawnZone, SpawnZoneDirection } from "@/features/maps/playableMapData";
 
-const starlightCafeSceneUrl = new URL("../../assets/generated/maps/starlight-cafe.png", import.meta.url).href;
-const xingliLeftWalkUrl = new URL("../../assets/generated/battle-optimized/characters/xingli-left-walk-battle.png", import.meta.url).href;
-const xingliRightWalkUrl = new URL("../../assets/generated/battle-optimized/characters/xingli-right-walk-battle.png", import.meta.url).href;
-const expCrystalUrl = new URL("../../assets/generated/battle-optimized/pickups/exp-crystal.png", import.meta.url).href;
-const coinUrl = new URL("../../assets/generated/battle-optimized/pickups/coin.png", import.meta.url).href;
-const chestUrl = new URL("../../assets/generated/battle-optimized/pickups/chest.png", import.meta.url).href;
-const healingCakeUrl = new URL("../../assets/generated/battle-optimized/pickups/healing-cake.png", import.meta.url).href;
 type BattleScreenProps = {
   durationSeconds?: number;
   testFullBuild?: boolean;
@@ -114,12 +108,7 @@ type ChestRewardKind = "coins" | "upgrade" | "relic" | "weapon";
 type SpawnSide = "left" | "right" | "top" | "bottom";
 type SpawnDirectionMode = "front" | "dual" | "tri" | "all";
 type SpawnSideWeights = Record<SpawnSide, number>;
-type ImageKey =
-  | MapId
-  | "xingliLeft"
-  | "xingliRight"
-  | MonsterId
-  | PickupType;
+type ImageKey = BattleImageKey;
 type BattleIconKey = UpgradeKind | WeaponId | RelicId | "coins" | "kills" | "chest";
 
 type MonsterConfig = {
@@ -511,7 +500,7 @@ function createBattlePerfConfig() {
   return {
     isMobile,
     targetFps: isMobile ? 60 : 120,
-    maxDpr: isLowEndMobile ? 1.5 : 2,
+    maxDpr: isLowEndMobile ? 1.25 : isMobile ? 1.5 : 2,
     renderScale: 1,
     hudUpdateIntervalMs: isMobile ? 180 : 120,
     monsterCollisionPasses: isMobile ? 2 : 3,
@@ -538,6 +527,9 @@ const PLAYER_RADIUS = 14;
 const PLAYER_MAP_COLLISION_RADIUS = 10;
 const CAKE_RADIUS = 20;
 const BOOKMARK_RADIUS = 18;
+const PLAYER_BASE_SPEED = 320;
+const PICKUP_MAGNET_SPEED = 760;
+const PICKUP_MAGNET_SPEED_OTHER = 540;
 const PROJECTILE_OFFSCREEN_MARGIN = 240;
 const MONSTER_DEATH_MS = 420;
 const XINGLI_WALK_FRAMES = 5;
@@ -547,12 +539,7 @@ const CONTACT_DAMAGE_COOLDOWN_MS = 520;
 const BATTLE_TARGET_FPS = BATTLE_PERF_CONFIG.targetFps;
 const BATTLE_FRAME_INTERVAL_MS = 1000 / BATTLE_TARGET_FPS;
 const HUD_UPDATE_INTERVAL_MS = BATTLE_PERF_CONFIG.hudUpdateIntervalMs;
-const MAX_CANVAS_DPR = BATTLE_PERF_CONFIG.maxDpr;
-const CANVAS_RENDER_SCALE = BATTLE_PERF_CONFIG.renderScale;
 const TARGET_CACHE_INTERVAL_MS = BATTLE_PERF_CONFIG.isMobile ? 120 : 80;
-const DRAW_CULL_MARGIN = BATTLE_PERF_CONFIG.drawCullMargin;
-const FLOOR_TILE_SCREEN_SIZE = 512;
-const FLOOR_TILE_SAFE_MARGIN = 128;
 const MAX_PAIR_COLLISION_MONSTERS = BATTLE_PERF_CONFIG.maxPairCollisionMonsters;
 const MAX_PICKUPS = BATTLE_PERF_CONFIG.maxPickups;
 const MAX_PLAYER_PROJECTILES = BATTLE_PERF_CONFIG.maxPlayerProjectiles;
@@ -677,42 +664,9 @@ const WEAPON_META: Record<
   },
 };
 
-const MAP_IMAGE_SOURCES: Record<MapId, string> = {
-  MAP001: starlightCafeSceneUrl,
-  MAP002: starlightCafeSceneUrl,
-  MAP003: starlightCafeSceneUrl,
-  MAP004: starlightCafeSceneUrl,
-  MAP005: starlightCafeSceneUrl,
-  MAP006: starlightCafeSceneUrl,
-};
-
-const BATTLE_IMAGE_SOURCES: Record<Exclude<ImageKey, MapId>, string> = {
-  xingliLeft: xingliLeftWalkUrl,
-  xingliRight: xingliRightWalkUrl,
-  "lost-dango": BATTLE_PIXEL_MONSTER_IMAGES["lost-dango"],
-  "patrol-robot": BATTLE_PIXEL_MONSTER_IMAGES["patrol-robot"],
-  "sleepy-ghost": BATTLE_PIXEL_MONSTER_IMAGES["sleepy-ghost"],
-  "repair-robot": BATTLE_PIXEL_MONSTER_IMAGES["repair-robot"],
-  "cloud-spirit": BATTLE_PIXEL_MONSTER_IMAGES["cloud-spirit"],
-  "alert-robot": BATTLE_PIXEL_MONSTER_IMAGES["alert-robot"],
-  "giant-dango-king": BATTLE_PIXEL_MONSTER_IMAGES["giant-dango-king"],
-  "nightmare-cat": BATTLE_PIXEL_MONSTER_IMAGES["nightmare-cat"],
-  "rogue-robot-mk01": BATTLE_PIXEL_MONSTER_IMAGES["rogue-robot-mk01"],
-  "forgotten-shadow": BATTLE_PIXEL_MONSTER_IMAGES["forgotten-shadow"],
-  "starrail-conductor": BATTLE_PIXEL_MONSTER_IMAGES["starrail-conductor"],
-  "dawn-core": BATTLE_PIXEL_MONSTER_IMAGES["dawn-core"],
-  exp: expCrystalUrl,
-  coin: coinUrl,
-  heal: healingCakeUrl,
-  chest: chestUrl,
-  luckyStar: BATTLE_PIXEL_RELIC_ICONS.luckyCharm,
-  energyDrink: BATTLE_PIXEL_RELIC_ICONS.strawberryShake,
-  mysteryBox: coinUrl,
-};
-
 const MONSTER_CONFIGS: MonsterConfig[] = [
   { id: "lost-dango", name: "迷路团子", availableAt: 0, hp: 10, speed: 96, damage: 5, radius: 19, exp: 6, drawSize: 50, imageKey: "lost-dango" },
-  { id: "patrol-robot", name: "巡逻机器人", availableAt: 0, hp: 8, speed: 124, damage: 5, radius: 20, exp: 6, drawSize: 56, imageKey: "patrol-robot" },
+  { id: "patrol-robot", name: "巡逻机器人", availableAt: 0, hp: 8, speed: 124, damage: 5, radius: 22, exp: 6, drawSize: 56, imageKey: "patrol-robot" },
   { id: "sleepy-ghost", name: "失眠小幽灵", availableAt: 180, hp: 14, speed: 132, damage: 7, radius: 19, exp: 10, drawSize: 54, imageKey: "sleepy-ghost" },
   { id: "repair-robot", name: "维修机器人", availableAt: 180, hp: 28, speed: 82, damage: 9, radius: 20, exp: 13, drawSize: 56, imageKey: "repair-robot" },
   { id: "cloud-spirit", name: "乌云精灵", availableAt: 360, hp: 24, speed: 110, damage: 9, radius: 22, exp: 14, drawSize: 58, imageKey: "cloud-spirit" },
@@ -802,7 +756,16 @@ const BATTLE_ICON_COMPONENTS: Record<BattleIconKey, LucideIcon> = {
   chest: Gift,
 };
 
+const BATTLE_ICON_IMAGES: Partial<Record<BattleIconKey, string>> = {
+  mangoCake: BATTLE_PIXEL_WEAPON_DISPLAY_IMAGES.mangoCake,
+};
+
 function BattleIcon({ icon, size = 30 }: { icon: BattleIconKey; size?: number }) {
+  const image = BATTLE_ICON_IMAGES[icon];
+  if (image) {
+    return <img src={image} alt="" className="battle-icon-image" style={{ width: size + 16, height: size + 16 }} />;
+  }
+
   const Icon = BATTLE_ICON_COMPONENTS[icon];
   return <Icon aria-hidden="true" size={size} strokeWidth={2.35} />;
 }
@@ -1796,10 +1759,6 @@ function getMonsterConfig(kind: MonsterId) {
   return MONSTER_CONFIG_BY_ID[kind] ?? MONSTER_CONFIGS[0];
 }
 
-function getMonsterHpMax(monster: Monster) {
-  return monster.maxHp;
-}
-
 function getSpawnMonsterHp(engine: EngineState, config: MonsterConfig, isElite: boolean, variant?: EnemyVariantConfig) {
   const phase = getBattlePhase(getTimelineElapsed(engine));
   const bossScale = config.isBoss ? engine.difficultyPreset.bossHpMultiplier : engine.difficultyPreset.enemyHpMultiplier;
@@ -2084,175 +2043,7 @@ function resolveMonsterCollisions(engine: EngineState, grid: MonsterSpatialGrid)
 }
 
 function loadImages(mapId: MapId, onReady: (images: Record<ImageKey, HTMLImageElement>) => void) {
-  const entries = [[mapId, MAP_IMAGE_SOURCES[mapId]], ...(Object.entries(BATTLE_IMAGE_SOURCES) as [Exclude<ImageKey, MapId>, string][])] as [
-    ImageKey,
-    string,
-  ][];
-  const images = {} as Record<ImageKey, HTMLImageElement>;
-  let remaining = entries.length;
-  for (const [key, src] of entries) {
-    const image = new Image();
-    image.decoding = "async";
-    const finish = () => {
-      images[key] = image;
-      remaining -= 1;
-      if (remaining === 0) onReady(images);
-    };
-    image.onload = () => {
-      image.decode?.().then(finish).catch(finish);
-    };
-    image.onerror = finish;
-    image.src = src;
-  }
-}
-
-const IMAGE_ASPECT_CACHE = new WeakMap<HTMLImageElement, number>();
-
-function getImageAspect(image: HTMLImageElement) {
-  const cached = IMAGE_ASPECT_CACHE.get(image);
-  if (cached !== undefined) return cached;
-  const aspect = image.naturalWidth > 0 && image.naturalHeight > 0 ? image.naturalWidth / image.naturalHeight : 1;
-  IMAGE_ASPECT_CACHE.set(image, aspect);
-  return aspect;
-}
-
-function drawImageMaxSize(context: CanvasRenderingContext2D, image: HTMLImageElement, x: number, y: number, maxSize: number) {
-  const aspect = getImageAspect(image);
-  const width = aspect >= 1 ? maxSize : maxSize * aspect;
-  const height = aspect >= 1 ? maxSize / aspect : maxSize;
-  context.drawImage(image, x - width / 2, y - height / 2, width, height);
-}
-
-function drawSpriteFrame(
-  context: CanvasRenderingContext2D,
-  image: HTMLImageElement,
-  frame: number,
-  frames: number,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-) {
-  const frameWidth = image.naturalWidth / frames;
-  context.drawImage(image, frameWidth * frame, 0, frameWidth, image.naturalHeight, x - width / 2, y - height / 2, width, height);
-}
-
-function rotatedPoint(x: number, y: number, localX: number, localY: number, cos: number, sin: number) {
-  return {
-    x: x + localX * cos - localY * sin,
-    y: y + localX * sin + localY * cos,
-  };
-}
-
-function drawProjectileDiamond(
-  context: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  rotation: number,
-  length: number,
-  width: number,
-) {
-  const cos = Math.cos(rotation);
-  const sin = Math.sin(rotation);
-  const nose = rotatedPoint(x, y, length, 0, cos, sin);
-  const right = rotatedPoint(x, y, 0, width, cos, sin);
-  const tail = rotatedPoint(x, y, -length * 0.78, 0, cos, sin);
-  const left = rotatedPoint(x, y, 0, -width, cos, sin);
-  context.beginPath();
-  context.moveTo(nose.x, nose.y);
-  context.lineTo(right.x, right.y);
-  context.lineTo(tail.x, tail.y);
-  context.lineTo(left.x, left.y);
-  context.closePath();
-  context.fill();
-}
-
-function drawProjectileGeometry(
-  context: CanvasRenderingContext2D,
-  projectile: Projectile,
-  x: number,
-  y: number,
-  sizeScale: number,
-  evolved: boolean,
-) {
-  const scale = Math.max(0.75, sizeScale);
-  const rotation = projectile.rotation;
-
-  if (projectile.weapon === "mangoCake") {
-    context.fillStyle = evolved ? "#ffdf61" : "#ffd05a";
-    drawProjectileDiamond(context, x, y, rotation, 12 * scale, 7 * scale);
-    context.fillStyle = evolved ? "#ff78c8" : "#fff0b0";
-    context.fillRect(x - 2 * scale, y - 2 * scale, 4 * scale, 4 * scale);
-    return;
-  }
-
-  if (projectile.weapon === "starlightPaperPlane") {
-    const cos = Math.cos(rotation);
-    const sin = Math.sin(rotation);
-    const nose = rotatedPoint(x, y, 15 * scale, 0, cos, sin);
-    const wingA = rotatedPoint(x, y, -11 * scale, 8 * scale, cos, sin);
-    const center = rotatedPoint(x, y, -3 * scale, 0, cos, sin);
-    const wingB = rotatedPoint(x, y, -11 * scale, -8 * scale, cos, sin);
-    context.fillStyle = evolved ? "#b8f4ff" : "#d7fbff";
-    context.beginPath();
-    context.moveTo(nose.x, nose.y);
-    context.lineTo(wingA.x, wingA.y);
-    context.lineTo(center.x, center.y);
-    context.lineTo(wingB.x, wingB.y);
-    context.closePath();
-    context.fill();
-    context.strokeStyle = evolved ? "#62d7ff" : "#7bbcff";
-    context.lineWidth = Math.max(1, 2 * scale);
-    context.beginPath();
-    context.moveTo(center.x, center.y);
-    context.lineTo(nose.x, nose.y);
-    context.stroke();
-    return;
-  }
-
-  if (projectile.weapon === "luckyClover") {
-    const radius = 5 * scale;
-    context.fillStyle = evolved ? "#f7e26a" : "#74df90";
-    context.beginPath();
-    context.arc(x - radius * 0.72, y - radius * 0.72, radius, 0, Math.PI * 2);
-    context.arc(x + radius * 0.72, y - radius * 0.72, radius, 0, Math.PI * 2);
-    context.arc(x - radius * 0.72, y + radius * 0.72, radius, 0, Math.PI * 2);
-    context.arc(x + radius * 0.72, y + radius * 0.72, radius, 0, Math.PI * 2);
-    context.fill();
-    return;
-  }
-
-  if (projectile.weapon === "moonBookmark") {
-    context.fillStyle = evolved ? "#d7e9ff" : "#9fc9ff";
-    drawProjectileDiamond(context, x, y, rotation, 13 * scale, 4.5 * scale);
-    context.strokeStyle = evolved ? "#fff4a8" : "#d7e9ff";
-    context.lineWidth = Math.max(1, 2 * scale);
-    context.beginPath();
-    context.arc(x, y, 9 * scale, -0.4, 0.9);
-    context.stroke();
-    return;
-  }
-
-  if (projectile.weapon === "strawberryMilkshake") {
-    context.fillStyle = evolved ? "#ff94cf" : "#ffb2cf";
-    context.beginPath();
-    context.arc(x, y, 9 * scale, 0, Math.PI * 2);
-    context.fill();
-    context.fillStyle = "#fff1f7";
-    context.fillRect(x - 5 * scale, y - 7 * scale, 10 * scale, 5 * scale);
-    return;
-  }
-
-  const pulseRadius = (evolved ? 30 : 22) * scale;
-  context.strokeStyle = evolved ? "#d9fbff" : "#8fd9ff";
-  context.lineWidth = Math.max(2, 3 * scale);
-  context.beginPath();
-  context.arc(x, y, pulseRadius, 0, Math.PI * 2);
-  context.stroke();
-  context.fillStyle = evolved ? "rgba(190, 245, 255, 0.32)" : "rgba(110, 210, 255, 0.24)";
-  context.beginPath();
-  context.arc(x, y, pulseRadius * 0.46, 0, Math.PI * 2);
-  context.fill();
+  loadBattleImages(mapId).then(onReady);
 }
 
 function unlockBattleAchievement(engine: EngineState, achievementId: string, showAchievement: (achievement: BattleAchievement) => void) {
@@ -2273,169 +2064,6 @@ function checkBattleAchievements(engine: EngineState, showAchievement: (achievem
   if (timelineElapsed >= 180 && engine.damageTaken === 0) unlockBattleAchievement(engine, "noDamage3", showAchievement);
   if (engine.eliteKills >= 50) unlockBattleAchievement(engine, "eliteHunter", showAchievement);
   if (engine.outcome === "victory") unlockBattleAchievement(engine, "finalSurvivor", showAchievement);
-}
-
-function drawGame(
-  canvas: HTMLCanvasElement,
-  context: CanvasRenderingContext2D,
-  engine: EngineState,
-  images: Record<ImageKey, HTMLImageElement>,
-  touchStick: TouchStickState,
-) {
-  const width = canvas.clientWidth;
-  const height = canvas.clientHeight;
-  const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, MAX_CANVAS_DPR) * CANVAS_RENDER_SCALE);
-  const pixelWidth = Math.max(1, Math.floor(width * dpr));
-  const pixelHeight = Math.max(1, Math.floor(height * dpr));
-  if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
-    canvas.width = pixelWidth;
-    canvas.height = pixelHeight;
-  }
-  context.setTransform(dpr, 0, 0, dpr, 0, 0);
-  context.imageSmoothingEnabled = false;
-  context.clearRect(0, 0, width, height);
-
-  const zoom = width < height ? 0.52 : 0.42;
-  const centerX = width / 2;
-  const centerY = height / 2;
-  const toScreenX = (x: number) => centerX + (x - engine.player.x) * zoom;
-  const toScreenY = (y: number) => centerY + (y - engine.player.y) * zoom;
-  const isVisibleScreenPoint = (x: number, y: number, margin = DRAW_CULL_MARGIN) =>
-    x >= -margin && x <= width + margin && y >= -margin && y <= height + margin;
-  const sceneImage = images[engine.mapConfig.id];
-  const tileSize = FLOOR_TILE_SCREEN_SIZE;
-  const safeMargin = FLOOR_TILE_SAFE_MARGIN;
-  const tileOffsetX = -(((engine.player.x * zoom) % tileSize) + tileSize) % tileSize;
-  const tileOffsetY = -(((engine.player.y * zoom) % tileSize) + tileSize) % tileSize;
-  let startX = Math.floor(tileOffsetX);
-  let startY = Math.floor(tileOffsetY);
-  while (startX > -safeMargin) startX -= tileSize;
-  while (startY > -safeMargin) startY -= tileSize;
-  context.fillStyle = "#0b1020";
-  context.fillRect(0, 0, width, height);
-  for (let y = startY; y < height + safeMargin; y += tileSize) {
-    for (let x = startX; x < width + safeMargin; x += tileSize) {
-      context.drawImage(sceneImage, x, y, tileSize + 1, tileSize + 1);
-    }
-  }
-
-  context.fillStyle = "rgba(8, 8, 16, 0.18)";
-  context.fillRect(0, 0, width, height);
-
-  for (const pickup of engine.pickups) {
-    const screenX = toScreenX(pickup.x);
-    const screenY = toScreenY(pickup.y);
-    if (!isVisibleScreenPoint(screenX, screenY, 80)) continue;
-    if (pickup.type === "chest") {
-      drawImageMaxSize(context, images.chest, screenX, screenY, pickup.chestTier === "legendary" ? 54 : pickup.chestTier === "rare" ? 49 : 45);
-    } else {
-      const image = images[pickup.type];
-      const size = pickup.type === "heal" ? 34 : pickup.type === "coin" ? 28 : 30;
-      drawImageMaxSize(context, image, screenX, screenY, size);
-    }
-  }
-
-  for (const projectile of engine.enemyProjectiles) {
-    const screenX = toScreenX(projectile.x);
-    const screenY = toScreenY(projectile.y);
-    if (!isVisibleScreenPoint(screenX, screenY, 80)) continue;
-    const radius = projectile.radius * zoom;
-    context.fillStyle = "rgba(255, 95, 144, 0.26)";
-    context.beginPath();
-    context.arc(screenX, screenY, radius * 1.85, 0, Math.PI * 2);
-    context.fill();
-    context.fillStyle = "rgba(255, 226, 247, 0.92)";
-    context.beginPath();
-    context.arc(screenX, screenY, Math.max(3, radius * 0.7), 0, Math.PI * 2);
-    context.fill();
-    context.strokeStyle = "rgba(255, 95, 144, 0.92)";
-    context.lineWidth = 2;
-    context.beginPath();
-    context.arc(screenX, screenY, Math.max(5, radius), 0, Math.PI * 2);
-    context.stroke();
-  }
-
-  const now = performance.now();
-  for (const monster of engine.monsters) {
-    const config = getMonsterConfig(monster.kind);
-    const screenX = toScreenX(monster.x);
-    const screenY = toScreenY(monster.y);
-    const monsterDrawSize = monster.drawSize;
-    if (!isVisibleScreenPoint(screenX, screenY, monsterDrawSize + DRAW_CULL_MARGIN)) continue;
-    const deathAge = monster.isDying ? now - monster.dyingAt : 0;
-    const deathScale = monster.isDying ? 1 + Math.min(1, deathAge / MONSTER_DEATH_MS) * 0.7 : 1;
-    const alpha = monster.isDying ? Math.max(0, 1 - deathAge / MONSTER_DEATH_MS) : 1;
-    if (!monster.isDying) {
-      const collisionRadius = monster.radius * zoom;
-      context.fillStyle = config.isBoss ? "rgba(142, 16, 40, 0.13)" : "rgba(255, 179, 71, 0.1)";
-      context.strokeStyle = monster.isElite ? "rgba(255, 232, 140, 0.55)" : "rgba(255, 230, 204, 0.18)";
-      context.lineWidth = monster.isElite ? 2 : 1;
-      context.beginPath();
-      context.ellipse(screenX, screenY + collisionRadius * 0.16, collisionRadius, collisionRadius * 0.62, 0, 0, Math.PI * 2);
-      context.fill();
-      context.stroke();
-    }
-    if (monster.isElite && !monster.isDying) {
-      context.strokeStyle = "rgba(255, 232, 140, 0.68)";
-      context.lineWidth = 3;
-      context.beginPath();
-      context.arc(screenX, screenY, monsterDrawSize * 0.36, 0, Math.PI * 2);
-      context.stroke();
-    }
-    if ((monster.shieldHp ?? 0) > 0 && !monster.isDying) {
-      const shieldPercent = Math.max(0, (monster.shieldHp ?? 0) / Math.max(1, monster.maxShieldHp ?? 1));
-      context.strokeStyle = `rgba(113, 217, 255, ${0.28 + shieldPercent * 0.48})`;
-      context.lineWidth = 3;
-      context.beginPath();
-      context.arc(screenX, screenY, monsterDrawSize * 0.44, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * shieldPercent);
-      context.stroke();
-    }
-    context.globalAlpha = alpha;
-    drawImageMaxSize(context, images[config.imageKey], screenX, screenY, monsterDrawSize * deathScale);
-    context.globalAlpha = 1;
-    if (config.isBoss && !monster.isDying) {
-      const hpPercent = Math.max(0, monster.hp / getMonsterHpMax(monster));
-      context.fillStyle = "rgba(26, 9, 16, 0.82)";
-      context.fillRect(screenX - 64, screenY - monsterDrawSize * 0.72, 128, 8);
-      context.fillStyle = "#8e1028";
-      context.fillRect(screenX - 64, screenY - monsterDrawSize * 0.72, 128 * hpPercent, 8);
-    }
-  }
-
-  for (const projectile of engine.projectiles) {
-    const screenX = toScreenX(projectile.x);
-    const screenY = toScreenY(projectile.y);
-    if (!isVisibleScreenPoint(screenX, screenY, 180)) continue;
-    const projectileAlpha = getProjectileAlpha(projectile);
-    const projectileSizeScale = getProjectileSizeScale(engine);
-    context.globalAlpha = projectileAlpha;
-    drawProjectileGeometry(context, projectile, screenX, screenY, projectileSizeScale, engine.evolvedWeapons[projectile.weapon]);
-    context.globalAlpha = 1;
-  }
-
-  const playerFrame = engine.player.isMoving ? engine.player.frame : 0;
-  const playerImage = engine.player.facing === "left" ? images.xingliLeft : images.xingliRight;
-  const playerHeight = Math.max(58, Math.min(82, width * 0.08));
-  const playerWidth = playerHeight * (210 / 325);
-  drawSpriteFrame(context, playerImage, playerFrame, XINGLI_WALK_FRAMES, width / 2, height / 2, playerWidth, playerHeight);
-
-  const hpPercent = Math.max(0, engine.stats.hp / engine.stats.maxHp);
-  context.fillStyle = "rgba(37, 10, 18, 0.82)";
-  context.fillRect(width / 2 - playerWidth * 0.42, height / 2 + playerHeight * 0.53, playerWidth * 0.84, 6);
-  context.fillStyle = "#9f1425";
-  context.fillRect(width / 2 - playerWidth * 0.42, height / 2 + playerHeight * 0.53, playerWidth * 0.84 * hpPercent, 6);
-
-  if (touchStick.active) {
-    context.strokeStyle = "rgba(255, 230, 204, 0.4)";
-    context.lineWidth = 2;
-    context.beginPath();
-    context.arc(touchStick.baseX, touchStick.baseY, 52, 0, Math.PI * 2);
-    context.stroke();
-    context.fillStyle = "rgba(255, 179, 71, 0.52)";
-    context.beginPath();
-    context.arc(touchStick.baseX + touchStick.knobX, touchStick.baseY + touchStick.knobY, 21, 0, Math.PI * 2);
-    context.fill();
-  }
 }
 
 function getProjectileHitRadius(projectile: Projectile, engine: EngineState) {
@@ -2461,18 +2089,6 @@ function isProjectilePastScreen(projectile: { x: number; y: number }, engine: En
     Math.abs(projectile.x - engine.player.x) > halfWidth + PROJECTILE_OFFSCREEN_MARGIN ||
     Math.abs(projectile.y - engine.player.y) > halfHeight + PROJECTILE_OFFSCREEN_MARGIN
   );
-}
-
-function getProjectileAlpha(projectile: Projectile) {
-  if (projectile.weapon !== "strawberryMilkshake") return 1;
-
-  const age = performance.now() - projectile.bornAt;
-  const lifetime = getTimedProjectileLifetime(projectile) ?? STAT_LIMITS.milkshakeDuration.max * 1000;
-  const fadeInMs = Math.min(160, lifetime * 0.22);
-  const fadeOutMs = Math.min(260, lifetime * 0.32);
-  const fadeIn = Math.min(1, age / Math.max(1, fadeInMs));
-  const fadeOut = Math.min(1, (lifetime - age) / Math.max(1, fadeOutMs));
-  return Math.max(0, Math.min(1, fadeIn, fadeOut));
 }
 
 function getMilkshakeLifetimeMs(engine: EngineState) {
@@ -3097,15 +2713,15 @@ function processPendingLevelUp(
 function updateEngine(
   engine: EngineState,
   delta: number,
-  canvas: HTMLCanvasElement,
+  viewport: { clientWidth: number; clientHeight: number },
   move: { dx: number; dy: number },
   setOverlay: (overlay: Overlay) => void,
   setLevelChoices: (choices: UpgradeChoice[]) => void,
   setChestChoices: (choices: ChestReward[]) => void,
   showAchievement: (achievement: BattleAchievement) => void,
 ) {
-  const width = canvas.clientWidth || 960;
-  const height = canvas.clientHeight || 540;
+  const width = viewport.clientWidth || 960;
+  const height = viewport.clientHeight || 540;
   const zoom = width < height ? 0.52 : 0.42;
   engine.elapsed += delta;
   engine.timeLeft = Math.max(0, engine.duration - engine.elapsed);
@@ -3122,8 +2738,8 @@ function updateEngine(
   engine.player.isMoving = move.dx !== 0 || move.dy !== 0;
   if (move.dx < 0) engine.player.facing = "left";
   if (move.dx > 0) engine.player.facing = "right";
-  const nextX = engine.player.x + (move.dx / length) * 360 * engine.stats.moveSpeed * delta;
-  const nextY = engine.player.y + (move.dy / length) * 360 * engine.stats.moveSpeed * delta;
+  const nextX = engine.player.x + (move.dx / length) * PLAYER_BASE_SPEED * engine.stats.moveSpeed * delta;
+  const nextY = engine.player.y + (move.dy / length) * PLAYER_BASE_SPEED * engine.stats.moveSpeed * delta;
   if (isMapPositionBlocked(engine, engine.player.x, engine.player.y, PLAYER_MAP_COLLISION_RADIUS)) resetPlayerToMapSpawn(engine);
   const clampedNext = clampToMapBounds(engine, nextX, nextY, PLAYER_MAP_COLLISION_RADIUS);
   if (!isMapPositionBlocked(engine, clampedNext.x, engine.player.y, PLAYER_MAP_COLLISION_RADIUS)) engine.player.x = clampedNext.x;
@@ -3383,8 +2999,9 @@ function updateEngine(
     const distanceSq = dx * dx + dy * dy;
     if (distanceSq < magnetRange * magnetRange) {
       const distance = Math.max(0.001, Math.sqrt(distanceSq));
-      pickup.x += (dx / distance) * 420 * delta;
-      pickup.y += (dy / distance) * 420 * delta;
+      const speed = pickup.type === "exp" || pickup.type === "coin" ? PICKUP_MAGNET_SPEED : PICKUP_MAGNET_SPEED_OTHER;
+      pickup.x += (dx / distance) * speed * delta;
+      pickup.y += (dy / distance) * speed * delta;
     }
   }
   let pickupExpAudioCount = 0;
@@ -3470,7 +3087,8 @@ export function BattleScreen({
   expectedClearUnlocks = [],
   onReturnMain,
 }: BattleScreenProps) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const battleViewportRef = useRef<HTMLDivElement | null>(null);
+  const pixiRendererRef = useRef<PixiBattleRenderer | null>(null);
   const imagesRef = useRef<Record<ImageKey, HTMLImageElement> | null>(null);
   const engineRef = useRef<EngineState>(createInitialEngine(durationSeconds, mapId, difficultyId, archivedAchievements, testFullBuild));
   const frameIdRef = useRef<number | null>(null);
@@ -3485,6 +3103,7 @@ export function BattleScreen({
   const touchStickRef = useRef<TouchStickState>({ active: false, baseX: 0, baseY: 0, knobX: 0, knobY: 0 });
   const overlayRef = useRef<Overlay>("none");
   const achievementTimerRef = useRef<number | null>(null);
+  const resumeBattleFrameRef = useRef<number | null>(null);
   const [assetsReady, setAssetsReady] = useState(false);
   const [overlay, setOverlayState] = useState<Overlay>("none");
   const [levelChoices, setLevelChoices] = useState<UpgradeChoice[]>([]);
@@ -3495,8 +3114,25 @@ export function BattleScreen({
   const { settings, setSettings } = useGameSettings();
 
   function setOverlay(overlayValue: Overlay) {
+    if (resumeBattleFrameRef.current !== null) {
+      window.cancelAnimationFrame(resumeBattleFrameRef.current);
+      resumeBattleFrameRef.current = null;
+    }
     overlayRef.current = overlayValue;
     setOverlayState(overlayValue);
+  }
+
+  function closeOverlayAfterRender() {
+    if (resumeBattleFrameRef.current !== null) window.cancelAnimationFrame(resumeBattleFrameRef.current);
+    setOverlayState("none");
+    resumeBattleFrameRef.current = window.requestAnimationFrame(() => {
+      resumeBattleFrameRef.current = window.requestAnimationFrame(() => {
+        resumeBattleFrameRef.current = null;
+        lastTimeRef.current = null;
+        lastUiUpdateRef.current = 0;
+        overlayRef.current = "none";
+      });
+    });
   }
 
   function previewSfxVolume() {
@@ -3528,6 +3164,26 @@ export function BattleScreen({
     startBattleMusic();
     prewarmBattleSfx();
     return () => stopBattleMusic();
+  }, []);
+
+  useEffect(() => {
+    const host = battleViewportRef.current;
+    if (!host) return undefined;
+
+    let cancelled = false;
+    createPixiBattleRenderer(host).then((renderer) => {
+      if (cancelled) {
+        renderer.destroy();
+        return;
+      }
+      pixiRendererRef.current = renderer;
+    });
+
+    return () => {
+      cancelled = true;
+      pixiRendererRef.current?.destroy();
+      pixiRendererRef.current = null;
+    };
   }, []);
 
   useEffect(() => {
@@ -3606,11 +3262,11 @@ export function BattleScreen({
       lastFrameRunRef.current = time;
       lastTimeRef.current = time;
       const delta = Math.min((time - previousTime) / 1000, 0.04);
-      const canvas = canvasRef.current;
-      const context = canvas?.getContext("2d");
+      const viewport = battleViewportRef.current;
+      const renderer = pixiRendererRef.current;
       const images = imagesRef.current;
 
-      if (canvas && context && images) {
+      if (viewport && renderer && images) {
         const keys = pressedKeysRef.current;
         const touchMove = touchMoveRef.current;
         const move = { dx: touchMove.dx, dy: touchMove.dy };
@@ -3619,13 +3275,13 @@ export function BattleScreen({
         if (keys.has("w")) move.dy -= 1;
         if (keys.has("s")) move.dy += 1;
         if (overlayRef.current === "none") {
-          updateEngine(engineRef.current, delta, canvas, move, setOverlay, setLevelChoices, setChestChoices, showAchievement);
+          updateEngine(engineRef.current, delta, viewport, move, setOverlay, setLevelChoices, setChestChoices, showAchievement);
           if (time - lastUiUpdateRef.current >= HUD_UPDATE_INTERVAL_MS || overlayRef.current !== "none" || engineRef.current.outcome) {
             lastUiUpdateRef.current = time;
             setUi(uiFromEngine(engineRef.current));
           }
         }
-        drawGame(canvas, context, engineRef.current, images, touchStickRef.current);
+        renderer.render(engineRef.current, images, touchStickRef.current);
       }
 
       frameIdRef.current = window.requestAnimationFrame(tick);
@@ -3634,6 +3290,7 @@ export function BattleScreen({
     frameIdRef.current = window.requestAnimationFrame(tick);
     return () => {
       if (frameIdRef.current !== null) window.cancelAnimationFrame(frameIdRef.current);
+      if (resumeBattleFrameRef.current !== null) window.cancelAnimationFrame(resumeBattleFrameRef.current);
       if (achievementTimerRef.current !== null) window.clearTimeout(achievementTimerRef.current);
     };
   }, []);
@@ -3699,8 +3356,7 @@ export function BattleScreen({
       playAudioEvent("evolveComplete");
     }
     checkBattleAchievements(engineRef.current, showAchievement);
-    setUi(uiFromEngine(engineRef.current));
-    setOverlay("none");
+    closeOverlayAfterRender();
   }
 
   function continueAfterReward() {
@@ -3712,7 +3368,7 @@ export function BattleScreen({
       return;
     }
     setUi(uiFromEngine(engine));
-    setOverlay("none");
+    closeOverlayAfterRender();
   }
 
   function chooseChestReward(reward: ChestReward) {
@@ -3768,7 +3424,7 @@ export function BattleScreen({
 
   return (
     <section className="battle-screen" aria-label="战斗场景">
-      <canvas ref={canvasRef} className="battle-canvas" aria-label="战斗画布" />
+      <div ref={battleViewportRef} className="battle-canvas" aria-label="战斗画布" />
       <div
         ref={touchLayerRef}
         className="battle-touch-layer"
