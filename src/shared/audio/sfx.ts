@@ -1,7 +1,7 @@
 import { SETTINGS_CHANGE_EVENT } from "@/features/settings/useGameSettings";
 
 const audioModules = import.meta.glob<string>(
-  "../../assets/audio/generated/SciFiSurvivor/**/*.wav",
+  "../../assets/audio/generated/SciFiSurvivor/**/*.mp3",
   {
     eager: true,
     import: "default",
