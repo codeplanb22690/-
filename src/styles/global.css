@@ -2710,6 +2710,7 @@ button {
   height: 100%;
   min-height: 0;
   display: grid;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
   overflow: hidden;
   background: #10111a;
 }
@@ -2719,19 +2720,28 @@ button {
   grid-row: 1;
 }
 
-.battle-canvas {
+.battle-canvas-host {
   width: 100%;
   height: 100%;
   display: block;
   min-width: 0;
   min-height: 0;
+  touch-action: none;
+  cursor: crosshair;
+  outline: none;
   image-rendering: pixelated;
 }
 
-.battle-canvas canvas {
+.battle-screen--webgl {
+  user-select: none;
+}
+
+.battle-render-canvas {
   width: 100%;
   height: 100%;
   display: block;
+  min-width: 0;
+  min-height: 0;
   image-rendering: pixelated;
 }
 
@@ -4398,5 +4408,18 @@ button {
 
   .battle-level-panel {
     width: min(82%, 760px);
+  }
+}
+
+@media (pointer: coarse) and (min-width: 700px) and (min-height: 700px) {
+  #viewport {
+    padding: 0;
+  }
+
+  .game-frame--battle {
+    width: 100dvw;
+    height: 100dvh;
+    max-width: none;
+    max-height: none;
   }
 }

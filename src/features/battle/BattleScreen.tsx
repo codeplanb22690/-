@@ -1,46 +1,28 @@
-import {
-  Album,
-  Badge,
-  Bookmark,
-  CakeSlice,
-  Coins,
-  Clover,
-  CupSoda,
-  Expand,
-  Gauge,
-  Gift,
-  House,
-  Magnet,
-  Orbit,
-  Pause,
-  Plane,
-  Play,
-  Skull,
-  Sparkles,
-  Star,
-  TimerReset,
-  type LucideIcon,
-  Wind,
-} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { MONSTER_CATALOG_BY_ID, RELIC_CATALOG, RELIC_CATALOG_BY_ID } from "@/features/catalog/gameCatalog";
 import { characters } from "@/features/character-select/characters";
 import { loadBattleImages } from "@/features/battle/battleAssetLoader";
-import { createPixiBattleRenderer } from "@/features/battle/pixiBattleRenderer";
+import {
+  createPixiBattleRenderer,
+  getPixiBattleChoiceLayout,
+  getPixiBattleHudLayout,
+  getPixiBattlePauseLayout,
+  getPixiBattleResultLayout,
+  pointInPixiRect,
+} from "@/features/battle/pixiBattleRenderer";
 import difficultyCurveData from "@/features/battle/config/difficulty_curve.json";
 import enemyTiersData from "@/features/battle/config/enemy_tiers.json";
 import { getDifficultyPreset, getMapConfig } from "@/features/maps/mapConfigs";
 import { getPlayableMapData, mapTileToWorld, PLAYABLE_MAP_TILE_WORLD_SIZE } from "@/features/maps/playableMapData";
 import { useGameSettings } from "@/features/settings/useGameSettings";
-import { BATTLE_PIXEL_WEAPON_DISPLAY_IMAGES } from "@/shared/assets/battlePixelAssets";
 import { startBattleMusic, stopBattleMusic, updateBattleMusic } from "@/shared/audio/music";
 import { playAudioEvent, prewarmBattleSfx } from "@/shared/audio/sfx";
 
 import type { PointerEvent as ReactPointerEvent } from "react";
 import type { CatalogMonsterId, CatalogRelicId } from "@/features/catalog/gameCatalog";
 import type { BattleImageKey } from "@/features/battle/battleAssetLoader";
-import type { PixiBattleRenderer } from "@/features/battle/pixiBattleRenderer";
+import type { PixiBattleChoice, PixiBattleHud, PixiBattleRenderer, PixiBattleUiOverlay } from "@/features/battle/pixiBattleRenderer";
 import type { DifficultyId, DifficultyPreset, GameMapConfig, MapId } from "@/features/maps/mapConfigs";
 import type { PlayableMapData, PlayableMapRect, PlayableMapSpawnZone, SpawnZoneDirection } from "@/features/maps/playableMapData";
 
@@ -483,6 +465,45 @@ type ChestReward = {
   weaponLevels?: number;
 };
 
+function choiceToPixiChoice(choice: UpgradeChoice | ChestReward, index: number): PixiBattleChoice {
+  return {
+    id: "id" in choice ? choice.id : `${choice.kind}-${choice.title}-${index}`,
+    title: choice.title,
+    description: choice.description,
+    icon: choice.icon,
+    highlighted: "highlighted" in choice ? choice.highlighted : false,
+  };
+}
+
+function makeBattleHud(engine: EngineState, achievementTitle: string | null, evolutionFlash: boolean): PixiBattleHud {
+  const weaponLines = WEAPON_IDS.filter((weapon) => engine.weapons[weapon] > 0).map((weapon) => {
+    const evolved = engine.evolvedWeapons[weapon];
+    const name = evolved ? getSuperWeaponTitle(weapon) : WEAPON_META[weapon].name;
+    return {
+      text: `Lv${engine.weapons[weapon]} ${name}`,
+      evolved,
+    };
+  });
+  const relicLines = engine.relics.map((relic) => `Lv${engine.relicLevels[relic] ?? 1} ${getRelicConfig(relic).name}`);
+
+  return {
+    mapName: engine.mapConfig.name,
+    difficultyName: engine.difficultyPreset.name,
+    mapMechanicName: engine.mapConfig.mechanicName,
+    timeLeft: engine.timeLeft,
+    level: engine.level,
+    xp: engine.xp,
+    xpToNext: engine.xpToNext,
+    coins: engine.coins,
+    kills: engine.kills,
+    mapEventNotice: performance.now() < engine.mapEvent.noticeUntil ? engine.mapEvent.notice : "",
+    weaponLines,
+    relicLines,
+    achievementTitle: achievementTitle ?? undefined,
+    evolutionFlash,
+  };
+}
+
 type BattleAchievement = {
   id: string;
   title: string;
@@ -555,6 +576,7 @@ const MAX_WEAPON_FIRES_PER_FRAME = BATTLE_PERF_CONFIG.isMobile ? 1 : 2;
 const WEAPON_FIRE_AUDIO_COOLDOWN_MS = BATTLE_PERF_CONFIG.isMobile ? 140 : 96;
 const ENABLE_PLAYER_WEAPON_FIRE_SFX = false;
 const ENABLE_PLAYER_HURT_SFX = false;
+const ENABLE_ENEMY_HIT_SFX = false;
 const ENABLE_MONSTER_PAIR_COLLISIONS = !BATTLE_PERF_CONFIG.isMobile;
 const MAX_PLAYER_COLLISION_MONSTERS = BATTLE_PERF_CONFIG.isMobile ? 14 : 28;
 const MONSTER_SPATIAL_CELL_SIZE = 220;
@@ -728,48 +750,6 @@ const UPGRADE_POOL: UpgradeChoice[] = [
   { id: "pickupRange", kind: "pickupRange", title: "星尘磁场", description: "拾取范围 +30", icon: "pickupRange" },
 ];
 
-const BATTLE_ICON_COMPONENTS: Record<BattleIconKey, LucideIcon> = {
-  attack: Sparkles,
-  attackSpeed: Gauge,
-  cooldown: TimerReset,
-  moveSpeed: Wind,
-  range: Expand,
-  pickupRange: Magnet,
-  milkshakeDuration: CupSoda,
-  mangoCake: CakeSlice,
-  strawberryMilkshake: CupSoda,
-  starlightPaperPlane: Plane,
-  luckyClover: Clover,
-  moonBookmark: Bookmark,
-  starPulse: Orbit,
-  starPulseEffect: Orbit,
-  relic: Gift,
-  evolution: Star,
-  xingliHairpin: Star,
-  cafeCard: Badge,
-  dreamAlbum: Album,
-  moonBookmarkRelic: Bookmark,
-  luckyCharm: Clover,
-  strawberryShake: CupSoda,
-  coins: Coins,
-  kills: Skull,
-  chest: Gift,
-};
-
-const BATTLE_ICON_IMAGES: Partial<Record<BattleIconKey, string>> = {
-  mangoCake: BATTLE_PIXEL_WEAPON_DISPLAY_IMAGES.mangoCake,
-};
-
-function BattleIcon({ icon, size = 30 }: { icon: BattleIconKey; size?: number }) {
-  const image = BATTLE_ICON_IMAGES[icon];
-  if (image) {
-    return <img src={image} alt="" className="battle-icon-image" style={{ width: size + 16, height: size + 16 }} />;
-  }
-
-  const Icon = BATTLE_ICON_COMPONENTS[icon];
-  return <Icon aria-hidden="true" size={size} strokeWidth={2.35} />;
-}
-
 function clampNumber(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
@@ -827,13 +807,6 @@ function readMaxHealth() {
   const health = characters[0].stats.find((stat) => stat.kind === "health");
   const value = Number.parseFloat(health?.value ?? "100");
   return Number.isFinite(value) ? value : 100;
-}
-
-function formatTime(seconds: number) {
-  const clampedSeconds = Math.max(0, Math.ceil(seconds));
-  const minutes = Math.floor(clampedSeconds / 60);
-  const remainingSeconds = clampedSeconds % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`;
 }
 
 function getBattlePhase(elapsed: number) {
@@ -2926,7 +2899,7 @@ function updateEngine(
       if (hitDx * hitDx + hitDy * hitDy > hitDistance * hitDistance) return;
       damageMonster(monster, projectile.damage);
       recordProjectileHit(projectile, monster);
-      frameHitAudioCount += 1;
+      if (ENABLE_ENEMY_HIT_SFX) frameHitAudioCount += 1;
       if (projectile.explosive) {
         const splashRadius = hitRadius * 2.6;
         const splashRadiusSq = splashRadius * splashRadius;
@@ -2936,7 +2909,7 @@ function updateEngine(
           const splashDy = projectile.y - splash.y;
           if (splashDx * splashDx + splashDy * splashDy <= splashRadiusSq) {
             damageMonster(splash, projectile.damage * (projectile.weapon === "starPulse" ? 0.68 : 0.45));
-            frameHitAudioCount += 1;
+            if (ENABLE_ENEMY_HIT_SFX) frameHitAudioCount += 1;
           }
         });
       }
@@ -3096,22 +3069,25 @@ export function BattleScreen({
   const lastFrameRunRef = useRef<number | null>(null);
   const lastUiUpdateRef = useRef(0);
   const pressedKeysRef = useRef<Set<string>>(new Set());
-  const touchLayerRef = useRef<HTMLDivElement | null>(null);
   const touchMoveRef = useRef({ dx: 0, dy: 0 });
   const touchPointerIdRef = useRef<number | null>(null);
+  const settingPointerIdRef = useRef<number | null>(null);
+  const settingDragRef = useRef<"music" | "sfx" | null>(null);
   const touchBaseRef = useRef({ x: 0, y: 0 });
   const touchStickRef = useRef<TouchStickState>({ active: false, baseX: 0, baseY: 0, knobX: 0, knobY: 0 });
   const overlayRef = useRef<Overlay>("none");
   const achievementTimerRef = useRef<number | null>(null);
   const resumeBattleFrameRef = useRef<number | null>(null);
-  const [assetsReady, setAssetsReady] = useState(false);
+  const levelChoicesRef = useRef<UpgradeChoice[]>([]);
+  const chestChoicesRef = useRef<ChestReward[]>([]);
+  const achievementTitleRef = useRef<string | null>(null);
+  const evolutionFlashRef = useRef(false);
+  const settingsRef = useRef({ settings: { music: 80, sfx: 80 } });
+  const battleUiOverlayRef = useRef<() => PixiBattleUiOverlay>(() => ({ type: "none" }));
   const [overlay, setOverlayState] = useState<Overlay>("none");
-  const [levelChoices, setLevelChoices] = useState<UpgradeChoice[]>([]);
-  const [chestChoices, setChestChoices] = useState<ChestReward[]>([]);
-  const [achievementToast, setAchievementToast] = useState<BattleAchievement | null>(null);
-  const [evolutionFlash, setEvolutionFlash] = useState(false);
   const [ui, setUi] = useState<UiState>(() => uiFromEngine(engineRef.current));
   const { settings, setSettings } = useGameSettings();
+  settingsRef.current = { settings };
 
   function setOverlay(overlayValue: Overlay) {
     if (resumeBattleFrameRef.current !== null) {
@@ -3120,6 +3096,14 @@ export function BattleScreen({
     }
     overlayRef.current = overlayValue;
     setOverlayState(overlayValue);
+  }
+
+  function setLevelChoicesForOverlay(choices: UpgradeChoice[]) {
+    levelChoicesRef.current = choices;
+  }
+
+  function setChestChoicesForOverlay(choices: ChestReward[]) {
+    chestChoicesRef.current = choices;
   }
 
   function closeOverlayAfterRender() {
@@ -3139,11 +3123,60 @@ export function BattleScreen({
     playAudioEvent("uiConfirm", { cooldownMs: 0 });
   }
 
+  battleUiOverlayRef.current = () => {
+    const currentOverlay = overlayRef.current;
+    if (currentOverlay === "paused") {
+      return {
+        type: "paused",
+        music: settingsRef.current.settings.music,
+        sfx: settingsRef.current.settings.sfx,
+      };
+    }
+    if (currentOverlay === "level-up") {
+      return {
+        type: "choice",
+        title: "等级提升",
+        choices: levelChoicesRef.current.map(choiceToPixiChoice),
+      };
+    }
+    if (currentOverlay === "chest") {
+      return {
+        type: "choice",
+        title: "宝箱开启",
+        choices: chestChoicesRef.current.map(choiceToPixiChoice),
+      };
+    }
+    if (currentOverlay === "result") {
+      const engine = engineRef.current;
+      const weaponLines = WEAPON_IDS.filter((weapon) => engine.weapons[weapon] > 0).map((weapon) => {
+        const name = engine.evolvedWeapons[weapon] ? getSuperWeaponTitle(weapon) : WEAPON_META[weapon].name;
+        return `${name} Lv.${engine.weapons[weapon]}${engine.evolvedWeapons[weapon] ? "★" : ""}`;
+      });
+      const lines = [
+        `${engine.mapConfig.name} · ${engine.difficultyPreset.name} · 等级 ${engine.level} · 金币 ${engine.coins}`,
+        `${weaponLines.join(" · ")} · 遗物 ${engine.relics.length}/6`,
+        `击杀 ${engine.kills} · 精英 ${engine.eliteKills} · 成就 ${engine.unlockedAchievements.size}`,
+      ];
+      if (engine.outcome === "victory" && isFirstMapDifficultyClear) {
+        lines.splice(2, 0, `首次通关奖励：${expectedClearUnlocks.length > 0 ? expectedClearUnlocks.join("、") : "通关记录已保存"}`);
+      }
+      return {
+        type: "result",
+        title: engine.outcome === "victory" ? "通关成功" : "游戏结束",
+        lines,
+        primaryLabel: "返回主界面",
+      };
+    }
+    return { type: "none" };
+  };
+
   function showAchievement(achievement: BattleAchievement) {
-    setAchievementToast(achievement);
+    achievementTitleRef.current = achievement.title;
     playAudioEvent("uiPopup");
     if (achievementTimerRef.current !== null) window.clearTimeout(achievementTimerRef.current);
-    achievementTimerRef.current = window.setTimeout(() => setAchievementToast(null), 3000);
+    achievementTimerRef.current = window.setTimeout(() => {
+      achievementTitleRef.current = null;
+    }, 3000);
   }
 
   useEffect(() => {
@@ -3152,6 +3185,10 @@ export function BattleScreen({
     lastFrameRunRef.current = null;
     lastUiUpdateRef.current = 0;
     setUi(uiFromEngine(engineRef.current));
+    setLevelChoicesForOverlay([]);
+    setChestChoicesForOverlay([]);
+    achievementTitleRef.current = null;
+    evolutionFlashRef.current = false;
     setOverlay("none");
   }, [durationSeconds, testFullBuild, mapId, difficultyId, archivedAchievements]);
 
@@ -3201,12 +3238,10 @@ export function BattleScreen({
 
   useEffect(() => {
     let cancelled = false;
-    setAssetsReady(false);
     imagesRef.current = null;
     loadImages(mapId, (images) => {
       if (cancelled) return;
       imagesRef.current = images;
-      setAssetsReady(true);
     });
     return () => {
       cancelled = true;
@@ -3236,6 +3271,10 @@ export function BattleScreen({
 
   useEffect(() => {
     function releasePointer(event: PointerEvent) {
+      if (settingPointerIdRef.current === event.pointerId) {
+        settingPointerIdRef.current = null;
+        settingDragRef.current = null;
+      }
       if (touchPointerIdRef.current !== event.pointerId) return;
       resetTouchInput();
     }
@@ -3275,13 +3314,19 @@ export function BattleScreen({
         if (keys.has("w")) move.dy -= 1;
         if (keys.has("s")) move.dy += 1;
         if (overlayRef.current === "none") {
-          updateEngine(engineRef.current, delta, viewport, move, setOverlay, setLevelChoices, setChestChoices, showAchievement);
+          updateEngine(engineRef.current, delta, viewport, move, setOverlay, setLevelChoicesForOverlay, setChestChoicesForOverlay, showAchievement);
           if (time - lastUiUpdateRef.current >= HUD_UPDATE_INTERVAL_MS || overlayRef.current !== "none" || engineRef.current.outcome) {
             lastUiUpdateRef.current = time;
             setUi(uiFromEngine(engineRef.current));
           }
         }
-        renderer.render(engineRef.current, images, touchStickRef.current);
+        renderer.render(
+          engineRef.current,
+          images,
+          touchStickRef.current,
+          makeBattleHud(engineRef.current, achievementTitleRef.current, evolutionFlashRef.current),
+          battleUiOverlayRef.current(),
+        );
       }
 
       frameIdRef.current = window.requestAnimationFrame(tick);
@@ -3297,11 +3342,32 @@ export function BattleScreen({
 
   function resetTouchInput() {
     const pointerId = touchPointerIdRef.current;
-    const layer = touchLayerRef.current;
-    if (pointerId !== null && layer?.hasPointerCapture(pointerId)) layer.releasePointerCapture(pointerId);
+    const host = battleViewportRef.current;
+    if (pointerId !== null && host?.hasPointerCapture(pointerId)) host.releasePointerCapture(pointerId);
     touchPointerIdRef.current = null;
     touchMoveRef.current = { dx: 0, dy: 0 };
     touchStickRef.current = { active: false, baseX: 0, baseY: 0, knobX: 0, knobY: 0 };
+  }
+
+  function getBattlePoint(event: ReactPointerEvent<HTMLDivElement>) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    return {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+      width: rect.width,
+      height: rect.height,
+    };
+  }
+
+  function updateSettingFromPoint(kind: "music" | "sfx", x: number, width: number, height: number) {
+    const layout = getPixiBattlePauseLayout(width, height);
+    const action = layout.actions.find((item) => item.id === kind);
+    if (!action) return;
+    const value = Math.max(0, Math.min(100, Math.round(((x - action.left) / Math.max(1, action.width)) * 100)));
+    setSettings((current) => ({
+      ...current,
+      [kind]: value,
+    }));
   }
 
   function updateTouchDirection(event: ReactPointerEvent<HTMLDivElement>) {
@@ -3331,19 +3397,95 @@ export function BattleScreen({
     };
   }
 
-  function handleTouchStart(event: ReactPointerEvent<HTMLDivElement>) {
-    if (overlayRef.current !== "none") return;
-    const rect = event.currentTarget.getBoundingClientRect();
+  function handleBattlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    const point = getBattlePoint(event);
+    const currentOverlay = overlayRef.current;
+    if (currentOverlay === "paused") {
+      const layout = getPixiBattlePauseLayout(point.width, point.height);
+      const hit = layout.actions.find((action) => pointInPixiRect(point.x, point.y, action));
+      if (!hit) return;
+      event.preventDefault();
+      if (hit.id === "continue" || hit.id === "confirm" || hit.id === "close") {
+        setOverlay("none");
+        return;
+      }
+      if (hit.id === "return") {
+        onReturnMain();
+        return;
+      }
+      if (hit.id === "music" || hit.id === "sfx") {
+        settingPointerIdRef.current = event.pointerId;
+        settingDragRef.current = hit.id;
+        event.currentTarget.setPointerCapture(event.pointerId);
+        updateSettingFromPoint(hit.id, point.x, point.width, point.height);
+      }
+      return;
+    }
+    if (currentOverlay === "level-up") {
+      const choices = levelChoicesRef.current;
+      const layout = getPixiBattleChoiceLayout(point.width, point.height, choices.map(choiceToPixiChoice));
+      const hitIndex = layout.cards.findIndex((rect) => pointInPixiRect(point.x, point.y, rect));
+      if (hitIndex >= 0 && choices[hitIndex]) {
+        event.preventDefault();
+        chooseUpgrade(choices[hitIndex]);
+      }
+      return;
+    }
+    if (currentOverlay === "chest") {
+      const choices = chestChoicesRef.current;
+      const layout = getPixiBattleChoiceLayout(point.width, point.height, choices.map(choiceToPixiChoice));
+      const hitIndex = layout.cards.findIndex((rect) => pointInPixiRect(point.x, point.y, rect));
+      if (hitIndex >= 0 && choices[hitIndex]) {
+        event.preventDefault();
+        chooseChestReward(choices[hitIndex]);
+      }
+      return;
+    }
+    if (currentOverlay === "result") {
+      const overlayData = battleUiOverlayRef.current();
+      const layout = getPixiBattleResultLayout(point.width, point.height, overlayData.type === "result" ? overlayData.lines.length : 3);
+      const hit = layout.actions.find((action) => pointInPixiRect(point.x, point.y, action));
+      if (hit?.id === "return") {
+        event.preventDefault();
+        onReturnMain(createBattleSummary());
+      }
+      return;
+    }
+    if (currentOverlay !== "none") return;
+
+    const pause = getPixiBattleHudLayout(point.width, point.height).pause;
+    if (pointInPixiRect(point.x, point.y, pause)) {
+      event.preventDefault();
+      setOverlay("paused");
+      return;
+    }
+
     touchPointerIdRef.current = event.pointerId;
     touchBaseRef.current = {
-      x: event.clientX - rect.left,
-      y: event.clientY - rect.top,
+      x: point.x,
+      y: point.y,
     };
     event.currentTarget.setPointerCapture(event.pointerId);
     updateTouchDirection(event);
   }
 
-  function handleTouchEnd(event: ReactPointerEvent<HTMLDivElement>) {
+  function handleBattlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    if (settingPointerIdRef.current === event.pointerId && settingDragRef.current) {
+      const point = getBattlePoint(event);
+      updateSettingFromPoint(settingDragRef.current, point.x, point.width, point.height);
+      return;
+    }
+    updateTouchDirection(event);
+  }
+
+  function handleBattlePointerEnd(event: ReactPointerEvent<HTMLDivElement>) {
+    if (settingPointerIdRef.current === event.pointerId) {
+      if (settingDragRef.current === "sfx") previewSfxVolume();
+      settingPointerIdRef.current = null;
+      settingDragRef.current = null;
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+      return;
+    }
     if (touchPointerIdRef.current !== event.pointerId) return;
     resetTouchInput();
   }
@@ -3351,8 +3493,10 @@ export function BattleScreen({
   function chooseUpgrade(choice: UpgradeChoice) {
     applyUpgrade(engineRef.current, choice);
     if (choice.kind === "evolution") {
-      setEvolutionFlash(true);
-      window.setTimeout(() => setEvolutionFlash(false), 900);
+      evolutionFlashRef.current = true;
+      window.setTimeout(() => {
+        evolutionFlashRef.current = false;
+      }, 900);
       playAudioEvent("evolveComplete");
     }
     checkBattleAchievements(engineRef.current, showAchievement);
@@ -3361,7 +3505,7 @@ export function BattleScreen({
 
   function continueAfterReward() {
     const engine = engineRef.current;
-    const result = processPendingLevelUp(engine, setOverlay, setLevelChoices, showAchievement);
+    const result = processPendingLevelUp(engine, setOverlay, setLevelChoicesForOverlay, showAchievement);
     if (result) {
       setUi(uiFromEngine(engine));
       if (result === "completion") setOverlay("none");
@@ -3408,222 +3552,20 @@ export function BattleScreen({
     };
   }
 
-  const xpPercent = Math.max(0, Math.min(100, (ui.xp / ui.xpToNext) * 100));
-  const weaponItems = WEAPON_IDS.filter((weapon) => ui.weapons[weapon] > 0).map((weapon) => ({
-    id: weapon,
-    name: ui.evolvedWeapons[weapon] ? getSuperWeaponTitle(weapon) : WEAPON_META[weapon].name,
-    level: ui.weapons[weapon],
-    evolved: ui.evolvedWeapons[weapon],
-  }));
-  const weaponSummary = weaponItems.map((weapon) => `${weapon.name} Lv.${weapon.level}${weapon.evolved ? "★" : ""}`).join(" · ");
-  const relicItems = ui.relics.map((relic) => ({
-    id: relic,
-    config: getRelicConfig(relic),
-    level: ui.relicLevels[relic] ?? 1,
-  }));
-
   return (
-    <section className="battle-screen" aria-label="战斗场景">
-      <div ref={battleViewportRef} className="battle-canvas" aria-label="战斗画布" />
+    <section className="battle-screen battle-screen--webgl" aria-label="战斗场景">
       <div
-        ref={touchLayerRef}
-        className="battle-touch-layer"
-        aria-label="触屏移动"
+        ref={battleViewportRef}
+        className="battle-canvas-host"
+        aria-label="战斗画布"
         role="application"
-        onPointerDown={handleTouchStart}
-        onPointerMove={updateTouchDirection}
-        onPointerUp={handleTouchEnd}
-        onPointerCancel={handleTouchEnd}
+        tabIndex={0}
+        onPointerDown={handleBattlePointerDown}
+        onPointerMove={handleBattlePointerMove}
+        onPointerUp={handleBattlePointerEnd}
+        onPointerCancel={handleBattlePointerEnd}
         onLostPointerCapture={resetTouchInput}
       />
-
-      <div className="battle-hud">
-        <div className="battle-map-badge" aria-label={`地图 ${ui.mapName}，难度 ${ui.difficultyName}`}>
-          <strong>{ui.mapName}</strong>
-          <span>{ui.difficultyName} · {ui.mapMechanicName}</span>
-        </div>
-        <div className="battle-hud__center">
-          <div className="battle-timer" aria-label={`剩余时间 ${formatTime(ui.timeLeft)}`}>
-            {formatTime(ui.timeLeft)}
-          </div>
-        </div>
-        <button type="button" className="battle-pause-button" aria-label="暂停" onClick={() => setOverlay("paused")}>
-          <Pause aria-hidden="true" size={18} strokeWidth={2.6} />
-        </button>
-      </div>
-
-      <div className="battle-level-exp battle-top-exp" aria-label="等级与经验">
-        <strong>Lv.{ui.level}</strong>
-        <span className="battle-level-exp__track">
-          <span className="battle-meter__fill battle-meter__fill--xp" style={{ width: `${xpPercent}%` }} />
-        </span>
-        <span className="battle-level-exp__value" aria-hidden="true">{ui.xp}/{ui.xpToNext}</span>
-      </div>
-
-      <div className="battle-side-counters" aria-label="资源与击杀统计">
-        <span className="battle-counter">
-          <BattleIcon icon="coins" size={18} />
-          <span>金币</span>
-          <strong>{ui.coins}</strong>
-        </span>
-        <span className="battle-counter">
-          <BattleIcon icon="kills" size={18} />
-          <span>击杀</span>
-          <strong>{engineRef.current.kills}</strong>
-        </span>
-      </div>
-
-      {ui.mapEventNotice ? <div className="battle-map-event-toast" role="status">{ui.mapEventNotice}</div> : null}
-
-      <div className="battle-loadout-panel" aria-label="武器与遗物等级">
-        <div className="battle-loadout-group">
-          <strong>武器</strong>
-          {weaponItems.map((weapon) => (
-            <span className={weapon.evolved ? "battle-loadout-line battle-loadout-line--evolved" : "battle-loadout-line"} key={weapon.id}>
-              Lv{weapon.level} {weapon.name}
-            </span>
-          ))}
-        </div>
-        <div className="battle-loadout-group">
-          <strong>遗物</strong>
-          {relicItems.length > 0 ? (
-            relicItems.map((relic) => (
-              <span className="battle-loadout-line" key={relic.id}>
-                Lv{relic.level} {relic.config.name}
-              </span>
-            ))
-          ) : (
-            <span className="battle-loadout-line battle-loadout-line--empty">未获得</span>
-          )}
-        </div>
-      </div>
-
-      {achievementToast ? (
-        <div className="battle-achievement-toast" role="status" aria-live="polite">
-          <span>成就解锁</span>
-          <strong>{achievementToast.title}</strong>
-        </div>
-      ) : null}
-
-      {evolutionFlash ? <div className="battle-evolution-flash" aria-hidden="true" /> : null}
-
-      {!assetsReady ? <div className="battle-modal-layer">载入中</div> : null}
-
-      {overlay === "paused" ? (
-        <div className="battle-modal-layer" role="dialog" aria-modal="true" aria-labelledby="battle-pause-title">
-          <div className="battle-pause-panel">
-            <h2 id="battle-pause-title">暂停</h2>
-            <div className="battle-pause-settings" aria-label="战斗设置">
-              <label className="battle-setting-row">
-                <span>音乐</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  aria-valuetext={`${settings.music}%`}
-                  value={settings.music}
-                  onChange={(event) =>
-                    setSettings((current) => ({
-                      ...current,
-                      music: Number(event.target.value),
-                    }))
-                  }
-                />
-                <strong>{settings.music}%</strong>
-              </label>
-              <label className="battle-setting-row">
-                <span>音效</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  aria-valuetext={`${settings.sfx}%`}
-                  value={settings.sfx}
-                  onChange={(event) =>
-                    setSettings((current) => ({
-                      ...current,
-                      sfx: Number(event.target.value),
-                    }))
-                  }
-                  onPointerUp={previewSfxVolume}
-                  onKeyUp={previewSfxVolume}
-                />
-                <strong>{settings.sfx}%</strong>
-              </label>
-            </div>
-            <button type="button" className="battle-pause-action battle-pause-action--primary" onClick={() => setOverlay("none")}>
-              <Play aria-hidden="true" size={17} strokeWidth={2.6} />
-              继续游戏
-            </button>
-            <button type="button" className="battle-pause-action" onClick={() => onReturnMain()}>
-              <House aria-hidden="true" size={17} strokeWidth={2.6} />
-              返回主界面
-            </button>
-          </div>
-        </div>
-      ) : null}
-
-      {overlay === "level-up" ? (
-        <div className="battle-modal-layer" role="dialog" aria-modal="true" aria-labelledby="battle-level-title">
-          <div className="battle-level-panel">
-            <h2 id="battle-level-title">等级提升</h2>
-            <div className="battle-upgrade-grid">
-              {levelChoices.map((choice) => (
-                <button
-                  type="button"
-                  className={choice.highlighted ? "battle-upgrade-card battle-upgrade-card--evolution" : "battle-upgrade-card"}
-                  key={choice.id}
-                  onClick={() => chooseUpgrade(choice)}
-                >
-                  <BattleIcon icon={choice.icon} />
-                  <strong>{choice.title}</strong>
-                  <span>{choice.description}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {overlay === "chest" ? (
-        <div className="battle-modal-layer" role="dialog" aria-modal="true" aria-labelledby="battle-chest-title">
-          <div className="battle-level-panel battle-chest-panel">
-            <h2 id="battle-chest-title">宝箱开启</h2>
-            <div className="battle-upgrade-grid battle-chest-grid">
-              {chestChoices.map((choice) => (
-                <button
-                  type="button"
-                  className="battle-upgrade-card battle-chest-card"
-                  key={`${choice.kind}-${choice.title}`}
-                  onClick={() => chooseChestReward(choice)}
-                >
-                  <BattleIcon icon={choice.icon} />
-                  <strong>{choice.title}</strong>
-                  <span>{choice.description}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {overlay === "result" ? (
-        <div className="battle-modal-layer" role="dialog" aria-modal="true" aria-labelledby="battle-result-title">
-          <div className="battle-pause-panel battle-pause-panel--game-over">
-            <h2 id="battle-result-title">{ui.outcome === "victory" ? "通关成功" : "游戏结束"}</h2>
-            <p>{ui.mapName} · {ui.difficultyName} · 等级 {ui.level} · 金币 {ui.coins}</p>
-            <p>{weaponSummary} · 遗物 {ui.relics.length}/6</p>
-            {ui.outcome === "victory" && isFirstMapDifficultyClear ? (
-              <p>首次通关奖励：{expectedClearUnlocks.length > 0 ? expectedClearUnlocks.join("、") : "通关记录已保存"}</p>
-            ) : null}
-            <p>击杀 {engineRef.current.kills} · 精英 {engineRef.current.eliteKills} · 成就 {engineRef.current.unlockedAchievements.size}</p>
-            <button type="button" className="battle-pause-action battle-pause-action--primary" onClick={() => onReturnMain(createBattleSummary())}>
-              <House aria-hidden="true" size={17} strokeWidth={2.6} />
-              返回主界面
-            </button>
-          </div>
-        </div>
-      ) : null}
     </section>
   );
 }

@@ -16,6 +16,7 @@ const expCrystalUrl = new URL("../../assets/generated/battle-optimized/pickups/e
 const coinUrl = new URL("../../assets/generated/battle-optimized/pickups/coin.png", import.meta.url).href;
 const chestUrl = new URL("../../assets/generated/battle-optimized/pickups/chest.png", import.meta.url).href;
 const healingCakeUrl = new URL("../../assets/generated/battle-optimized/pickups/healing-cake.png", import.meta.url).href;
+const expBarFrameUrl = new URL("../../assets/generated/ui/exp-bar-frame.png", import.meta.url).href;
 
 export type BattlePickupImageKey = "exp" | "coin" | "heal" | "chest" | "luckyStar" | "energyDrink" | "mysteryBox";
 
@@ -23,6 +24,7 @@ export type BattleImageKey =
   | MapId
   | "xingliLeft"
   | "xingliRight"
+  | "expBarFrame"
   | "mangoCakeProjectile"
   | "rainbowCakeProjectile"
   | CatalogMonsterId
@@ -40,6 +42,7 @@ const MAP_IMAGE_SOURCES: Record<MapId, string> = {
 const BATTLE_IMAGE_SOURCES: Record<Exclude<BattleImageKey, MapId>, string> = {
   xingliLeft: xingliLeftWalkUrl,
   xingliRight: xingliRightWalkUrl,
+  expBarFrame: expBarFrameUrl,
   mangoCakeProjectile: BATTLE_PIXEL_PROJECTILES.mangoCake,
   rainbowCakeProjectile: BATTLE_PIXEL_EVOLVED_PROJECTILES.mangoCake,
   "lost-dango": BATTLE_PIXEL_MONSTER_IMAGES["lost-dango"],
